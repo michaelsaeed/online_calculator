@@ -1,7 +1,5 @@
 import streamlit as st
 
-web: streamlit run existing_shares_calc.py --server.port $PORT --server.enableCORS false
-
 st.title("Covered Call Calculator (Existing Shares)")
 
 stock_price = st.number_input("Stock Price", value=0.00, format="%.2f")
