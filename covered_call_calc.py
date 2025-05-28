@@ -3,26 +3,27 @@ import streamlit as st
 # Set page configuration
 st.set_page_config(page_title="Covered Call Calculator", layout="centered")
 
-# Track selected calculator and detect changes
-if "calc_option" not in st.session_state:
+# Initialize session state for reset functionality
+if 'calc_option' not in st.session_state:
     st.session_state.calc_option = "Existing Shares"
+    st.session_state.reset_inputs = True
 
-# Sidebar calculator selector with key
-selected_option = st.sidebar.radio("Select Calculator", ["Existing Shares", "New Shares"], key="calc_option")
+st.sidebar.title("Calculator Options")
+calc_option = st.sidebar.radio(
+    "Select Calculator", 
+    ["Existing Shares", "New Shares"],
+    key='calc_option',
+    on_change=lambda: st.session_state.update({'reset_inputs': True})
+)
 
-# Detect change in calculator type and reset
-if "prev_calc_option" not in st.session_state:
-    st.session_state.prev_calc_option = selected_option
+# Reset inputs when calculator type changes
+if st.session_state.reset_inputs:
+    st.session_state.clear()  # Clear all inputs
+    st.session_state.calc_option = calc_option  # Restore the calculator option
+    st.session_state.reset_inputs = False  # Reset the flag
+    st.rerun()  # Rerun the app to reflect cleared inputs
 
-# If user switches calculator, reset session state and rerun
-if selected_option != st.session_state.prev_calc_option:
-    for key in list(st.session_state.keys()):
-        if key not in ("calc_option", "prev_calc_option"):
-            del st.session_state[key]
-    st.session_state.prev_calc_option = selected_option
-    st.experimental_rerun()  # force a rerun to apply reset
-
-# --- Shared Styles ---
+# Shared Styles
 st.markdown("<h2><b>Covered Call Calculator</b></h2>", unsafe_allow_html=True)
 st.markdown("---")
 
