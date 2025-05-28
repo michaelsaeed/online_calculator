@@ -9,6 +9,21 @@ calc_option = st.sidebar.radio("Select Calculator", ["Existing Shares", "New Sha
 st.markdown("<h2><b>Covered Call Calculator</b></h2>", unsafe_allow_html=True)
 st.markdown("---")
 
+# Detect calculator switch
+if "calculator_type" not in st.session_state:
+    st.session_state.calculator_type = "Existing Shares"
+    st.session_state.prev_calc_type = "Existing Shares"
+
+calculator_type = st.selectbox("Choose Calculator", ["Existing Shares", "New Shares"])
+
+# Reset session state if calculator type changed
+if calculator_type != st.session_state.prev_calc_type:
+    for key in st.session_state.keys():
+        del st.session_state[key]
+    st.session_state.calculator_type = calculator_type
+    st.session_state.prev_calc_type = calculator_type
+    st.experimental_rerun()
+
 # ======================================================
 # === Existing Shares Calculator ===
 # ======================================================
