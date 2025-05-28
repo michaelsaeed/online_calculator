@@ -13,6 +13,9 @@ st.markdown("---")
 # === Existing Shares Calculator ===
 # ======================================================
 if calc_option == "Existing Shares":
+    st.markdown("<h3><b>Existing Shares</b></h3>", unsafe_allow_html=True)
+    st.markdown("---")
+    
     st.markdown("<h4><b>Stock Data:</b></h4>", unsafe_allow_html=True)
 
     stock_price = st.number_input("Stock Price", value=0.00, format="%.2f")
@@ -76,6 +79,9 @@ if calc_option == "Existing Shares":
 # === New Shares Calculator ===
 # ======================================================
 else:
+    st.markdown("<h3><b>New Shares</b></h3>", unsafe_allow_html=True)
+    st.markdown("---")
+    
     st.markdown("<h4><b>Stock Data:</b></h4>", unsafe_allow_html=True)
 
     stock_price = st.number_input("Stock Price", value=0.00, format="%.2f")
