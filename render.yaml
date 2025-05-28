@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: existing-shares-app
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run existing_shares_calc.py --server.port=$PORT --server.enableCORS=false
+    repo: https://github.com/michaelsaeed/online_calculator
+    branch: main  # or your actual branch name
+    autoDeploy: true
+
+  - type: web
+    name: new-shares-app
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run new_shares_calc.py --server.port=$PORT --server.enableCORS=false
+    repo: https://github.com/michaelsaeed/online_calculator
+    branch: main  # or your actual branch name
+    autoDeploy: true
