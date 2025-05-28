@@ -1,24 +1,26 @@
 import streamlit as st
 
-# Page config
+# Set page configuration
 st.set_page_config(page_title="Covered Call Calculator", layout="centered")
 
-# --- Reset inputs when calculator type changes ---
+# Track selected calculator and detect changes
 if "calc_option" not in st.session_state:
     st.session_state.calc_option = "Existing Shares"
-    st.session_state.last_calc_option = "Existing Shares"
 
-# Sidebar
-st.sidebar.title("Calculator Options")
-calc_option = st.sidebar.radio("Select Calculator", ["Existing Shares", "New Shares"])
+# Sidebar calculator selector with key
+selected_option = st.sidebar.radio("Select Calculator", ["Existing Shares", "New Shares"], key="calc_option")
 
-# Check if user switched calculator type
-if calc_option != st.session_state.last_calc_option:
-    # Clear all user inputs
-    for key in st.session_state.keys():
-        if key not in ["calc_option", "last_calc_option"]:
+# Detect change in calculator type and reset
+if "prev_calc_option" not in st.session_state:
+    st.session_state.prev_calc_option = selected_option
+
+# If user switches calculator, reset session state and rerun
+if selected_option != st.session_state.prev_calc_option:
+    for key in list(st.session_state.keys()):
+        if key not in ("calc_option", "prev_calc_option"):
             del st.session_state[key]
-    st.session_state.last_calc_option = calc_option
+    st.session_state.prev_calc_option = selected_option
+    st.experimental_rerun()  # force a rerun to apply reset
 
 # --- Shared Styles ---
 st.markdown("<h2><b>Covered Call Calculator</b></h2>", unsafe_allow_html=True)
