@@ -1,28 +1,28 @@
 import streamlit as st
 
+# Page config
 st.set_page_config(page_title="Covered Call Calculator", layout="centered")
 
+# --- Reset inputs when calculator type changes ---
+if "calc_option" not in st.session_state:
+    st.session_state.calc_option = "Existing Shares"
+    st.session_state.last_calc_option = "Existing Shares"
+
+# Sidebar
 st.sidebar.title("Calculator Options")
 calc_option = st.sidebar.radio("Select Calculator", ["Existing Shares", "New Shares"])
 
-# Shared Styles
+# Check if user switched calculator type
+if calc_option != st.session_state.last_calc_option:
+    # Clear all user inputs
+    for key in st.session_state.keys():
+        if key not in ["calc_option", "last_calc_option"]:
+            del st.session_state[key]
+    st.session_state.last_calc_option = calc_option
+
+# --- Shared Styles ---
 st.markdown("<h2><b>Covered Call Calculator</b></h2>", unsafe_allow_html=True)
 st.markdown("---")
-
-# Detect calculator switch
-if "calculator_type" not in st.session_state:
-    st.session_state.calculator_type = "Existing Shares"
-    st.session_state.prev_calc_type = "Existing Shares"
-
-calculator_type = st.selectbox("Choose Calculator", ["Existing Shares", "New Shares"])
-
-# Reset session state if calculator type changed
-if calculator_type != st.session_state.prev_calc_type:
-    for key in st.session_state.keys():
-        del st.session_state[key]
-    st.session_state.calculator_type = calculator_type
-    st.session_state.prev_calc_type = calculator_type
-    st.experimental_rerun()
 
 # ======================================================
 # === Existing Shares Calculator ===
