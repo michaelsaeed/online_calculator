@@ -83,7 +83,7 @@ st.session_state.sold_option_to_delete = {}
 st.title("📈 Greek Offset Calculator")
 
 # ===== Holding Section =====
-st.header("📌 Holding Shares")
+st.header("📌 Shares Held")
 
 if st.button("➕ Add Trade to Holding Section"):
     add_holding_trade()
@@ -131,7 +131,7 @@ for i, trade in enumerate(st.session_state.holding_trades):
 st.markdown("---")  # adds a horizontal line
 
 # ===== Sold Section =====
-st.header("📌 Sold Shares")
+st.header("📌 Shares Sold")
 
 if st.button("➕ Add Trade to Sold Section"):
     add_sold_trade()
