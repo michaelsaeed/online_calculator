@@ -3,12 +3,12 @@ import streamlit as st
 st.set_page_config(page_title="Greek Offset Calculator", layout="wide")
 
 # ========== Session Initialization ==========
-if "holding_trades" not in st.session_state:
-    st.session_state.holding_trades = []
+if "held_trades" not in st.session_state:
+    st.session_state.held_trades = []
 
-if "add_option_holding_index" in st.session_state:
-    index = st.session_state.pop("add_option_holding_index")
-    st.session_state.holding_trades[index]["options"].append({
+if "add_option_held_index" in st.session_state:
+    index = st.session_state.pop("add_option_held_index")
+    st.session_state.held_trades[index]["options"].append({
         "quantity": 0,
         "premium": 0.0,
         "profit": 0.0
@@ -26,11 +26,11 @@ if "add_option_sold_index" in st.session_state:
     })
 
 # Initialize deletion trackers if they don't exist
-if "holding_to_delete" not in st.session_state:
-    st.session_state.holding_to_delete = None
+if "held_to_delete" not in st.session_state:
+    st.session_state.held_to_delete = None
 
-if "holding_option_to_delete" not in st.session_state:
-    st.session_state.holding_option_to_delete = {}
+if "held_option_to_delete" not in st.session_state:
+    st.session_state.held_option_to_delete = {}
 
 if "sold_to_delete" not in st.session_state:
     st.session_state.sold_to_delete = None
@@ -39,8 +39,8 @@ if "sold_option_to_delete" not in st.session_state:
     st.session_state.sold_option_to_delete = {}
 
 
-def add_holding_trade():
-    st.session_state.holding_trades.append({
+def add_held_trade():
+    st.session_state.held_trades.append({
         "quantity": 0,
         "avg_price": 0.0,
         "total_cost": 0.0,
@@ -59,15 +59,15 @@ def add_sold_trade():
 
 
 # Apply deletions at the start of script execution
-if st.session_state.holding_to_delete is not None:
-    st.session_state.holding_trades.pop(st.session_state.holding_to_delete)
-    st.session_state.holding_to_delete = None
+if st.session_state.held_to_delete is not None:
+    st.session_state.held_trades.pop(st.session_state.held_to_delete)
+    st.session_state.held_to_delete = None
 
-for i, option_indices in st.session_state.holding_option_to_delete.items():
+for i, option_indices in st.session_state.held_option_to_delete.items():
     for j in sorted(option_indices, reverse=True):
-        if i < len(st.session_state.holding_trades) and j < len(st.session_state.holding_trades[i]["options"]):
-            st.session_state.holding_trades[i]["options"].pop(j)
-st.session_state.holding_option_to_delete = {}
+        if i < len(st.session_state.held_trades) and j < len(st.session_state.held_trades[i]["options"]):
+            st.session_state.held_trades[i]["options"].pop(j)
+st.session_state.held_option_to_delete = {}
 
 if st.session_state.sold_to_delete is not None:
     st.session_state.sold_trades.pop(st.session_state.sold_to_delete)
@@ -82,17 +82,17 @@ st.session_state.sold_option_to_delete = {}
 # ========== UI ==========
 st.title("📈 Greek Offset Calculator")
 
-# ===== Holding Section =====
-st.header("📌 Shares Currently Held")
+# ===== held Section =====
+st.header("📌 Shares Held")
 
-if st.button("➕ Add Trade to Holding Section"):
-    add_holding_trade()
+if st.button("➕ Add Trade to Held Section"):
+    add_held_trade()
 
-for i, trade in enumerate(st.session_state.holding_trades):
-    st.subheader(f"Holding Stock Trade {i + 1}")
+for i, trade in enumerate(st.session_state.held_trades):
+    st.subheader(f"Held Stock Trade {i + 1}")`
 
-    if st.button(f"➖ Remove Trade {i + 1}", key=f"remove_holding_trade_{i}"):
-        st.session_state.holding_to_delete = i
+    if st.button(f"➖ Remove Trade {i + 1}", key=f"remove_held_trade_{i}"):
+        st.session_state.held_to_delete = i
         st.rerun()
 
     cols = st.columns(3)
@@ -106,24 +106,24 @@ for i, trade in enumerate(st.session_state.holding_trades):
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
         pcols = st.columns(4)
-        option["quantity"] = pcols[0].number_input(f"Option {j + 1} Qty (Holding {i + 1})", value=option["quantity"],
+        option["quantity"] = pcols[0].number_input(f"Option {j + 1} Qty (Held {i + 1})", value=option["quantity"],
                                                    key=f"hold_option_qty_{i}_{j}")
-        option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Holding {i + 1})", value=option["premium"],
+        option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Held {i + 1})", value=option["premium"],
                                                   key=f"hold_option_premium_{i}_{j}")
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
-        pcols[2].number_input(f"Profit {j + 1} (Holding {i + 1})", value=option["profit"],
+        pcols[2].number_input(f"Profit {j + 1} (held {i + 1})", value=option["profit"],
                               key=f"hold_option_profit_{i}_{j}", disabled=True)
 
         if pcols[3].button("➖", key=f"remove_hold_option_{i}_{j}"):
-            if i not in st.session_state.holding_option_to_delete:
-                st.session_state.holding_option_to_delete[i] = []
-            st.session_state.holding_option_to_delete[i].append(j)
+            if i not in st.session_state.held_option_to_delete:
+                st.session_state.held_option_to_delete[i] = []
+            st.session_state.held_option_to_delete[i].append(j)
             st.rerun()
 
-    if st.button(f"➕ Add Option to Holding Trade {i + 1}", key=f"add_hold_option_{i}"):
-        st.session_state.add_option_holding_index = i
+    if st.button(f"➕ Add Option to Held Trade {i + 1}", key=f"add_hold_option_{i}"):
+        st.session_state.add_option_held_index = i
         st.rerun()
 
     st.markdown("---")
@@ -184,12 +184,12 @@ st.markdown("---")  # adds a horizontal line
 st.header("📊 Trades Summary")
 
 # Calculate totals
-total_quantity = sum(trade["quantity"] for trade in st.session_state.holding_trades)
-total_cost = sum(trade["total_cost"] for trade in st.session_state.holding_trades)
+total_quantity = sum(trade["quantity"] for trade in st.session_state.held_trades)
+total_cost = sum(trade["total_cost"] for trade in st.session_state.held_trades)
 
 total_option_profit = sum(
     option["profit"]
-    for trade in st.session_state.holding_trades + st.session_state.sold_trades
+    for trade in st.session_state.held_trades + st.session_state.sold_trades
     for option in trade["options"]
 )
 
