@@ -212,6 +212,7 @@ st.markdown("---")  # adds a horizontal line
 
 # ===== In case of Selling the Shares =====
 st.header("📉 Selling the Shares")
+st.markdown("<h4>Note: In case of making a change in the above trades, re-enter the Selling Price for updated calculations.</h4>", unsafe_allow_html=True)
 
 selling_price = st.number_input("**Selling Price**", min_value=0.0, step=0.01)
 
