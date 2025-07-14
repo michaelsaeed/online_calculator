@@ -224,5 +224,5 @@ profit_loss_pct = (net_profit_loss / adjusted_cost * 100) if adjusted_cost != 0 
 # Display
 st.markdown(f"**Current Shares Value:** ${current_value:,.2f}")
 st.markdown(f"**Adjusted Cost:** ${adjusted_cost:,.2f}")
-st.markdown(f"**Net Profit/Loss:** ${net_profit_loss:,.2f}")
+st.success(f"**Net Profit/Loss:** ${net_profit_loss:,.2f}")
 st.success(f"**Profit/Loss Percentage:** {profit_loss_pct:.2f}%")
