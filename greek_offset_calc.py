@@ -89,7 +89,7 @@ if st.button("➕ Add Trade to Held Section"):
     add_held_trade()
 
 for i, trade in enumerate(st.session_state.held_trades):
-    st.subheader(f"Held Stock Trade {i + 1}")`
+    st.subheader(f"Held Stock Trade {i + 1}")
 
     if st.button(f"➖ Remove Trade {i + 1}", key=f"remove_held_trade_{i}"):
         st.session_state.held_to_delete = i
@@ -113,7 +113,7 @@ for i, trade in enumerate(st.session_state.held_trades):
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
-        pcols[2].number_input(f"Profit {j + 1} (held {i + 1})", value=option["profit"],
+        pcols[2].number_input(f"Profit {j + 1} (Held {i + 1})", value=option["profit"],
                               key=f"hold_option_profit_{i}_{j}", disabled=True)
 
         if pcols[3].button("➖", key=f"remove_hold_option_{i}_{j}"):
