@@ -24,7 +24,7 @@ if calc_option == "Existing Shares":
     
     total_cost = stock_price * qty_shares
     #st.write(f"**Total Cost:** ${total_cost:.2f}")
-    st.success(f"Total Cost: ${total_cost:.2f}")  # Green box
+    st.success(f"Total Cost: ${total_cost:,.2f}")  # Green box
     
     st.markdown("---")  # adds a horizontal line
     # --------------------------------------------------------------------
@@ -58,7 +58,7 @@ if calc_option == "Existing Shares":
     
     profit_exer = roi_exer * total_cost
     #st.write(f"**Profit:** ${profit_exer:.2f}")
-    st.success(f"Profit: ${profit_exer:.2f}")  # Green box
+    st.success(f"Profit: ${profit_exer:,.2f}")  # Green box
     
     st.markdown("---")  # adds a horizontal line
     # --------------------------------------------------------------------
@@ -74,7 +74,7 @@ if calc_option == "Existing Shares":
     
     profit_not_exer = roi_not_exer * total_cost
     #st.write(f"**Profit:** ${profit_not_exer:.2f}")
-    st.success(f"Profit: ${profit_not_exer:.2f}")  # Green box
+    st.success(f"Profit: ${profit_not_exer:,.2f}")  # Green box
 
 # ======================================================
 # === New Shares Calculator ===
