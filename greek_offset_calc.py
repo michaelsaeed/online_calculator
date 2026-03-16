@@ -387,3 +387,4 @@ with col2:
     st.markdown(f"**Adjusted Cost:** ${adjusted_cost_not_exer:,.2f}")
     st.success(f"**Net Profit/Loss:** ${net_profit_loss_not_exer:,.2f}")
     st.success(f"**Profit/Loss Percentage:** {profit_loss_pct_not_exer:.2f}%")
+
