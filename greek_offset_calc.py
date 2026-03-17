@@ -145,7 +145,7 @@ for i, trade in enumerate(st.session_state.held_trades):
 
     # Auto-calculate Total Cost
     trade["total_cost"] = trade["quantity"] * trade["avg_price"]
-    cols[2].number_input(f"Total Cost {i + 1}", value=trade["total_cost"], key=f"hold_cost_{i}", disabled=True)
+    cols[2].text_input(f"Total Cost {i + 1}", value=f"${trade['total_cost']:,.2f}", disabled=True, key=f"hold_cost_display_{i}")
 
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
@@ -157,8 +157,7 @@ for i, trade in enumerate(st.session_state.held_trades):
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
-        pcols[2].number_input(f"Profit {j + 1} (Held {i + 1})", value=option["profit"],
-                              key=f"hold_option_profit_{i}_{j}", disabled=True)
+        pcols[2].text_input(f"Profit {j + 1} (Held {i + 1})", value=f"${option['profit']:,.2f}", disabled=True, key=f"held_option_profit_display_{i}_{j}")
 
         if pcols[3].button("➖", key=f"remove_hold_option_{i}_{j}"):
             if i not in st.session_state.held_option_to_delete:
@@ -195,7 +194,7 @@ for i, trade in enumerate(st.session_state.sold_trades):
 
     # Auto-calculate Profit
     trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
-    cols[3].number_input(f"Profit {i + 1}", value=trade["profit"], key=f"sold_profit_{i}", disabled=True)
+    cols[3].text_input(f"Profit {i + 1}", value=f"${trade['profit']:,.2f}", disabled=True, key=f"sold_profit_display_{i}")
 
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
@@ -207,8 +206,7 @@ for i, trade in enumerate(st.session_state.sold_trades):
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
-        pcols[2].number_input(f"Profit {j + 1} (Sold {i + 1})", value=option["profit"],
-                              key=f"sold_option_profit_{i}_{j}", disabled=True)
+        pcols[2].text_input(f"Profit {j + 1} (Sold {i + 1})", value=f"${option['profit']:,.2f}", disabled=True, key=f"sold_option_profit_display_{i}_{j}")
 
         if pcols[3].button("➖", key=f"remove_sold_option_{i}_{j}"):
             if i not in st.session_state.sold_option_to_delete:
@@ -246,13 +244,13 @@ for i, trade in enumerate(st.session_state.future_trade):
 
     # Auto-calculate Total Cost
     trade["total_cost"] = trade["quantity"] * trade["avg_price"]
-    cols[2].number_input(f"Total Cost", value=trade["total_cost"], key=f"future_cost", disabled=True)
+    cols[2].text_input(f"Total Cost", value=f"${trade['total_cost']:,.2f}", disabled=True, key="future_cost_display")
 
     trade["sold_price"] = cols[3].number_input(f"Strike Price", value=trade["sold_price"], key=f"future_sold_price")
 
     # Auto-calculate Profit
     trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
-    cols[4].number_input(f"Profit", value=trade["profit"], key=f"future_sold_profit", disabled=True)
+    cols[4].text_input(f"Profit", value=f"${trade['profit']:,.2f}", disabled=True, key="future_profit_display")
 
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
@@ -264,8 +262,7 @@ for i, trade in enumerate(st.session_state.future_trade):
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
-        pcols[2].number_input(f"Profit", value=option["profit"],
-                              key=f"future_option_profit", disabled=True)
+        pcols[2].text_input(f"Profit", value=f"${option['profit']:,.2f}", disabled=True, key=f"future_option_profit_display_{j}")
 
         if pcols[3].button("➖", key=f"remove_future_option"):
             if i not in st.session_state.future_option_to_delete:
@@ -358,7 +355,7 @@ with col2:
     total_profit = total_option_profit + total_sold_profit
 
     # Avoid division by zero
-    if total_quantity_exer > 0:
+    if total_quantity_not_exer > 0:
         breakeven_price = (total_cost_not_exer - total_profit) / total_quantity_not_exer
     else:
         breakeven_price = 0.0
