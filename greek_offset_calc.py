@@ -120,6 +120,35 @@ for i, option_indices in st.session_state.future_option_to_delete.items():
             st.session_state.future_trade[i]["options"].pop(j)
 st.session_state.future_option_to_delete = {}
 
+
+# ========== CALCULATION FUNCTIONS - ADD THIS SECTION ==========
+def update_calculations():
+    """Update all calculated values in session state"""
+    # Update held trades calculations
+    for trade in st.session_state.held_trades:
+        trade["total_cost"] = trade["quantity"] * trade["avg_price"]
+        for option in trade["options"]:
+            option["profit"] = option["quantity"] * option["premium"]
+
+    # Update sold trades calculations
+    for trade in st.session_state.sold_trades:
+        trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
+        for option in trade["options"]:
+            option["profit"] = option["quantity"] * option["premium"]
+
+    # Update future trade calculations
+    for trade in st.session_state.future_trade:
+        trade["total_cost"] = trade["quantity"] * trade["avg_price"]
+        trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
+        for option in trade["options"]:
+            option["profit"] = option["quantity"] * option["premium"]
+
+
+# Run calculations at the beginning of each rerun
+update_calculations()
+# ========== END OF ADDED SECTION ==========
+
+
 # ========== UI ==========
 st.title("📈 Greek Offset Calculator")
 
@@ -255,16 +284,16 @@ for i, trade in enumerate(st.session_state.future_trade):
     for j, option in enumerate(trade["options"]):
         pcols = st.columns(4)
         option["quantity"] = pcols[0].number_input(f"Option Qty", value=option["quantity"],
-                                                   key=f"future_option_qty")
+                                                   key=f"future_option_qty_{j}")
         option["premium"] = pcols[1].number_input(f"Premium", value=option["premium"],
-                                                  key=f"future_option_premium")
+                                                  key=f"future_option_premium_{j}")
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
         pcols[2].number_input(f"Profit", value=option["profit"],
-                              key=f"future_option_profit", disabled=True)
+                              key=f"future_option_profit_{j}", disabled=True)
 
-        if pcols[3].button("➖", key=f"remove_future_option"):
+        if pcols[3].button("➖", key=f"remove_future_option_{j}"):
             if i not in st.session_state.future_option_to_delete:
                 st.session_state.future_option_to_delete[i] = []
             st.session_state.future_option_to_delete[i].append(j)
@@ -287,31 +316,18 @@ with col1:
     # ===== Trades Summary If Future Trade is Exercised =====
     st.header("📊 Trades Summary If Future Trade Is Exercised")
 
-    # CORRECTED CALCULATION BLOCK FOR CLOUD DEPLOYMENT
-    # Summing directly from session_state widget keys
-    total_quantity_exer = sum(
-        st.session_state.get(f"hold_qty_{i}", 0) for i in range(len(st.session_state.held_trades)))
-    total_cost_exer = sum(st.session_state.get(f"hold_qty_{i}", 0) * st.session_state.get(f"hold_avg_{i}", 0.0) for i in
-                          range(len(st.session_state.held_trades)))
+    # Calculate totals
+    total_quantity_exer = sum(trade["quantity"] for trade in st.session_state.held_trades)
+    total_cost_exer = sum(trade["total_cost"] for trade in st.session_state.held_trades)
 
-    # Calculate option profits
-    opt_prof_h = sum(
-        st.session_state.get(f"hold_option_qty_{i}_{j}", 0) * st.session_state.get(f"hold_option_premium_{i}_{j}", 0.0)
-        for i, t in enumerate(st.session_state.held_trades) for j in range(len(t["options"])))
-    opt_prof_s = sum(
-        st.session_state.get(f"sold_option_qty_{i}_{j}", 0) * st.session_state.get(f"sold_option_premium_{i}_{j}", 0.0)
-        for i, t in enumerate(st.session_state.sold_trades) for j in range(len(t["options"])))
-    opt_prof_f = sum(st.session_state.get("future_option_qty", 0) * st.session_state.get("future_option_premium", 0.0)
-                     for _ in st.session_state.future_trade)
-    total_option_profit = opt_prof_h + opt_prof_s + opt_prof_f
+    total_option_profit = sum(
+        option["profit"]
+        for trade in st.session_state.held_trades + st.session_state.sold_trades + st.session_state.future_trade
+        for option in trade["options"]
+    )
 
-    total_sold_profit = sum(st.session_state.get(f"sold_qty_{i}", 0) * (
-                st.session_state.get(f"sold_price_{i}", 0.0) - st.session_state.get(f"sold_avg_{i}", 0.0)) for i in
-                            range(len(st.session_state.sold_trades)))
-    total_future_sold_profit = sum(st.session_state.get("future_qty", 0) * (
-                st.session_state.get("future_sold_price", 0.0) - st.session_state.get("future_avg", 0.0)) for _ in
-                                   st.session_state.future_trade)
-
+    total_sold_profit = sum(trade["profit"] for trade in st.session_state.sold_trades)
+    total_future_sold_profit = sum(trade["profit"] for trade in st.session_state.future_trade)
     total_profit = total_option_profit + total_sold_profit + total_future_sold_profit
 
     # Avoid division by zero
@@ -352,31 +368,36 @@ with col2:
     # ===== Trades Summary If Future Trade is Not Exercised =====
     st.header("📊 Trades Summary If Future Trade Is NOT Exercised")
 
-    # CORRECTED CALCULATION BLOCK FOR CLOUD DEPLOYMENT
-    total_quantity_not_exer = total_quantity_exer + sum(
-        st.session_state.get("future_qty", 0) for _ in st.session_state.future_trade)
-    total_cost_not_exer = total_cost_exer + sum(
-        st.session_state.get("future_qty", 0) * st.session_state.get("future_avg", 0.0) for _ in
-        st.session_state.future_trade)
+    # Calculate totals
+    total_quantity_not_exer = sum(
+        trade["quantity"] for trade in st.session_state.held_trades + st.session_state.future_trade)
+    total_cost_not_exer = sum(
+        trade["total_cost"] for trade in st.session_state.held_trades + st.session_state.future_trade)
 
-    # total_option_profit and total_sold_profit already calculated above
-    total_profit_not = total_option_profit + total_sold_profit
+    total_option_profit = sum(
+        option["profit"]
+        for trade in st.session_state.held_trades + st.session_state.sold_trades + st.session_state.future_trade
+        for option in trade["options"]
+    )
+
+    total_sold_profit = sum(trade["profit"] for trade in st.session_state.sold_trades)
+    total_profit = total_option_profit + total_sold_profit
 
     # Avoid division by zero
     if total_quantity_not_exer > 0:
-        breakeven_price_not = (total_cost_not_exer - total_profit_not) / total_quantity_not_exer
+        breakeven_price = (total_cost_not_exer - total_profit) / total_quantity_not_exer
     else:
-        breakeven_price_not = 0.0
+        breakeven_price = 0.0
 
     # Display
     st.markdown(f"**Total Quantity of Shares:** {total_quantity_not_exer}")
     st.markdown(f"**Total Cost:** ${total_cost_not_exer:,.2f}")
-    st.markdown(f"**Total Profit:** ${total_profit_not:,.2f}")
-    st.success(f"**Breakeven Price:** ${breakeven_price_not:,.2f}")
+    st.markdown(f"**Total Profit:** ${total_profit:,.2f}")
+    st.success(f"**Breakeven Price:** ${breakeven_price:,.2f}")
 
     st.markdown("---")  # adds a horizontal line
 
-    # ===== Selling the Shares If Future Trade Is NOT Exercised =====
+    # ===== Selling the Shares If Future Trade Is Exercised =====
     st.header("📉 Selling the Shares If Future Trade Is NOT Exercised")
     st.markdown(
         "<h4>Note: In case of making a change in the above trades, re-enter the Selling Price for updated calculations.</h4>",
@@ -386,7 +407,7 @@ with col2:
                                              key="selling_price_not_exer")
 
     current_value_not_exer = total_quantity_not_exer * selling_price_not_exer
-    adjusted_cost_not_exer = total_cost_not_exer - total_profit_not
+    adjusted_cost_not_exer = total_cost_not_exer - total_profit
     net_profit_loss_not_exer = current_value_not_exer - adjusted_cost_not_exer
     profit_loss_pct_not_exer = (
                 net_profit_loss_not_exer / adjusted_cost_not_exer * 100) if adjusted_cost_not_exer != 0 else 0.0
