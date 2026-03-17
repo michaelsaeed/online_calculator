@@ -1,4 +1,7 @@
 import streamlit as st
+import pandas as pd
+import io
+import json
 
 st.set_page_config(page_title="Greek Offset Calculator", layout="wide")
 
@@ -27,12 +30,12 @@ if "add_option_sold_index" in st.session_state:
     )
     del st.session_state.add_option_sold_index
 
-if "future_trade" not in st.session_state:
-    st.session_state.future_trade = []
+if "future_trades" not in st.session_state:
+    st.session_state.future_trades = []
 
 if "add_option_future_index" in st.session_state:
     i = st.session_state.add_option_future_index
-    st.session_state.future_trade[i]["options"].append({
+    st.session_state.future_trades[i]["options"].append({
         "quantity": 0,
         "premium": 0.0,
         "profit": 0.0
@@ -79,7 +82,7 @@ def add_sold_trade():
 
 
 def add_future_trade():
-    st.session_state.future_trade.append({
+    st.session_state.future_trades.append({
         "quantity": 0,
         "avg_price": 0.0,
         "total_cost": 0.0,
@@ -113,7 +116,7 @@ st.session_state.sold_option_to_delete = {}
 
 
 if st.session_state.future_to_delete is not None:
-    st.session_state.future_trade.pop(st.session_state.future_to_delete)
+    st.session_state.future_trades.pop(st.session_state.future_to_delete)
     st.session_state.future_to_delete = None
 
 
@@ -125,6 +128,7 @@ st.header("📌 Enter The Trades That You Are Currently Holding")
 
 if st.button("➕ Add Trade to Held Section"):
     add_held_trade()
+    st.rerun()
 
 for i, trade in enumerate(st.session_state.held_trades):
     st.subheader(f"Held Stock Trade {i + 1}")
@@ -174,6 +178,7 @@ st.header("📌 Enter The Trades That Were Exercised")
 
 if st.button("➕ Add Trade to Sold Section"):
     add_sold_trade()
+    st.rerun()
 
 for i, trade in enumerate(st.session_state.sold_trades):
     st.subheader(f"Sold Trade {i + 1}")
@@ -229,7 +234,7 @@ if st.button("➕ Add Trade to Future Section"):
     add_future_trade()
     st.rerun()
 
-for i, trade in enumerate(st.session_state.future_trade):
+for i, trade in enumerate(st.session_state.future_trades):
 
     if st.button(f"➖ Remove Future Trade {i + 1}", key=f"remove_future_trade_{i}"):
         st.session_state.future_to_delete = i
@@ -293,12 +298,12 @@ with col1:
 
     total_option_profit = sum(
         option["profit"]
-        for trade in st.session_state.held_trades + st.session_state.sold_trades + st.session_state.future_trade
+        for trade in st.session_state.held_trades + st.session_state.sold_trades + st.session_state.future_trades
         for option in trade["options"]
     )
 
     total_sold_profit = sum(trade["profit"] for trade in st.session_state.sold_trades)
-    total_future_sold_profit = sum(trade["profit"] for trade in st.session_state.future_trade)
+    total_future_sold_profit = sum(trade["profit"] for trade in st.session_state.future_trades)
     total_profit = total_option_profit + total_sold_profit + total_future_sold_profit
 
     # Avoid division by zero
@@ -340,12 +345,12 @@ with col2:
     st.header("📊 Trades Summary If Future Trade Is NOT Exercised")
 
     # Calculate totals
-    total_quantity_not_exer = sum(trade["quantity"] for trade in st.session_state.held_trades + st.session_state.future_trade)
-    total_cost_not_exer = sum(trade["total_cost"] for trade in st.session_state.held_trades + st.session_state.future_trade)
+    total_quantity_not_exer = sum(trade["quantity"] for trade in st.session_state.held_trades + st.session_state.future_trades)
+    total_cost_not_exer = sum(trade["total_cost"] for trade in st.session_state.held_trades + st.session_state.future_trades)
 
     total_option_profit = sum(
         option["profit"]
-        for trade in st.session_state.held_trades + st.session_state.sold_trades + st.session_state.future_trade
+        for trade in st.session_state.held_trades + st.session_state.sold_trades + st.session_state.future_trades
         for option in trade["options"]
     )
 
@@ -385,8 +390,57 @@ with col2:
 
 st.markdown("---")  # adds a horizontal line
 
-import pandas as pd
-import io
+
+st.header("💾 Save or Export Your Trades")
+
+# ---------- 1️⃣ Download Trades JSON for Later Editing ----------
+trades_data = {
+    "held_trades": st.session_state.held_trades,
+    "sold_trades": st.session_state.sold_trades,
+    "future_trades": st.session_state.future_trades
+}
+
+json_bytes = io.BytesIO()
+json_bytes.write(json.dumps(trades_data, indent=4).encode("utf-8"))
+json_bytes.seek(0)
+
+st.download_button(
+    label="Download Trades JSON (Reload Later)",
+    data=json_bytes,
+    file_name="my_trades.json",
+    mime="application/json"
+)
+
+# ---------- 2️⃣ Load Saved JSON Trades ----------
+uploaded_file = st.file_uploader("📂 Upload Saved Trades JSON", type=["json"])
+
+# Track load state
+if "load_triggered" not in st.session_state:
+    st.session_state.load_triggered = False
+
+if uploaded_file is not None and not st.session_state.load_triggered:
+    try:
+        saved_trades = json.load(uploaded_file)
+
+        # Only update if data is different
+        if (saved_trades.get("held_trades", []) != st.session_state.held_trades or
+                saved_trades.get("sold_trades", []) != st.session_state.sold_trades or
+                saved_trades.get("future_trades", []) != st.session_state.future_trades):
+            st.session_state.held_trades = saved_trades.get("held_trades", [])
+            st.session_state.sold_trades = saved_trades.get("sold_trades", [])
+            st.session_state.future_trades = saved_trades.get("future_trades", [])
+            st.session_state.load_triggered = True
+            st.success("✅ Trades restored successfully!")
+            st.rerun()
+
+    except Exception as e:
+        st.error(f"Failed to load trades: {e}")
+
+# Reset trigger when file is removed
+if uploaded_file is None:
+    st.session_state.load_triggered = False
+
+st.markdown("---")  # adds a horizontal line
 
 # ===== Download Trades Excel =====
 st.header("💾 Download Trades Spreadsheet")
@@ -397,7 +451,7 @@ all_trades = []
 for trade_list, trade_type in [
     (st.session_state.held_trades, "Held"),
     (st.session_state.sold_trades, "Sold"),
-    (st.session_state.future_trade, "Future")
+    (st.session_state.future_trades, "Future")
 ]:
     for i, trade in enumerate(trade_list):
         base = {
@@ -464,3 +518,4 @@ st.download_button(
     file_name="trades_export.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
+
