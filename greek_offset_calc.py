@@ -1,168 +1,240 @@
 import streamlit as st
+import json
 
 st.set_page_config(page_title="Greek Offset Calculator", layout="wide")
 
-# ========== Session Initialization - MINIMAL ==========
-if "held_trades" not in st.session_state:
-    st.session_state.held_trades = []
+# ========== Initialize from query params ==========
+def load_from_params():
+    """Load data from URL query parameters"""
+    params = st.query_params
+    
+    if "data" in params:
+        try:
+            data = json.loads(params["data"])
+            return data
+        except:
+            return {"held": [], "sold": [], "future": []}
+    return {"held": [], "sold": [], "future": []}
 
-if "sold_trades" not in st.session_state:
-    st.session_state.sold_trades = []
+def save_to_params(data):
+    """Save data to URL query parameters"""
+    st.query_params["data"] = json.dumps(data)
 
-if "future_trade" not in st.session_state:
-    st.session_state.future_trade = []
+# Initialize or load data
+if "data_loaded" not in st.session_state:
+    st.session_state.data = load_from_params()
+    st.session_state.data_loaded = True
 
-# Initialize deletion trackers
-if "held_to_delete" not in st.session_state:
-    st.session_state.held_to_delete = None
+# ========== UI State Management ==========
+def update_url():
+    """Update URL with current data"""
+    save_to_params(st.session_state.data)
 
-if "held_option_to_delete" not in st.session_state:
-    st.session_state.held_option_to_delete = {}
-
-if "sold_to_delete" not in st.session_state:
-    st.session_state.sold_to_delete = None
-
-if "sold_option_to_delete" not in st.session_state:
-    st.session_state.sold_option_to_delete = {}
-
-if "future_to_delete" not in st.session_state:
-    st.session_state.future_to_delete = None
-
-if "future_option_to_delete" not in st.session_state:
-    st.session_state.future_option_to_delete = {}
-
-
+# ========== Trade Management ==========
 def add_held_trade():
-    st.session_state.held_trades.append({
-        "quantity": 0,
-        "avg_price": 0.0,
-        "options": []
+    st.session_state.data["held"].append({
+        "q": 0,  # quantity
+        "p": 0.0,  # avg price
+        "o": []  # options
     })
-
+    update_url()
 
 def add_sold_trade():
-    st.session_state.sold_trades.append({
-        "quantity": 0,
-        "avg_price": 0.0,
-        "sold_price": 0.0,
-        "options": []
+    st.session_state.data["sold"].append({
+        "q": 0,  # quantity
+        "p": 0.0,  # avg price
+        "s": 0.0,  # sold price
+        "o": []  # options
     })
-
+    update_url()
 
 def add_future_trade():
-    st.session_state.future_trade.append({
-        "quantity": 0,
-        "avg_price": 0.0,
-        "sold_price": 0.0,
-        "options": []
+    st.session_state.data["future"] = [{
+        "q": 0,  # quantity
+        "p": 0.0,  # avg price
+        "s": 0.0,  # sold price
+        "o": []  # options
+    }]
+    update_url()
+
+def remove_held_trade(index):
+    st.session_state.data["held"].pop(index)
+    update_url()
+
+def remove_sold_trade(index):
+    st.session_state.data["sold"].pop(index)
+    update_url()
+
+def remove_future_trade():
+    st.session_state.data["future"] = []
+    update_url()
+
+def add_held_option(trade_index):
+    st.session_state.data["held"][trade_index]["o"].append({
+        "q": 0,  # quantity
+        "p": 0.0  # premium
     })
+    update_url()
 
+def add_sold_option(trade_index):
+    st.session_state.data["sold"][trade_index]["o"].append({
+        "q": 0,  # quantity
+        "p": 0.0  # premium
+    })
+    update_url()
 
-# Apply deletions
-if st.session_state.held_to_delete is not None:
-    st.session_state.held_trades.pop(st.session_state.held_to_delete)
-    st.session_state.held_to_delete = None
+def add_future_option():
+    if st.session_state.data["future"]:
+        st.session_state.data["future"][0]["o"].append({
+            "q": 0,  # quantity
+            "p": 0.0  # premium
+        })
+        update_url()
 
-for i, option_indices in st.session_state.held_option_to_delete.items():
-    for j in sorted(option_indices, reverse=True):
-        if i < len(st.session_state.held_trades) and j < len(st.session_state.held_trades[i]["options"]):
-            st.session_state.held_trades[i]["options"].pop(j)
-st.session_state.held_option_to_delete = {}
+def remove_held_option(trade_index, option_index):
+    st.session_state.data["held"][trade_index]["o"].pop(option_index)
+    update_url()
 
-if st.session_state.sold_to_delete is not None:
-    st.session_state.sold_trades.pop(st.session_state.sold_to_delete)
-    st.session_state.sold_to_delete = None
+def remove_sold_option(trade_index, option_index):
+    st.session_state.data["sold"][trade_index]["o"].pop(option_index)
+    update_url()
 
-for i, option_indices in st.session_state.sold_option_to_delete.items():
-    for j in sorted(option_indices, reverse=True):
-        if i < len(st.session_state.sold_trades) and j < len(st.session_state.sold_trades[i]["options"]):
-            st.session_state.sold_trades[i]["options"].pop(j)
-st.session_state.sold_option_to_delete = {}
+def remove_future_option(option_index):
+    if st.session_state.data["future"]:
+        st.session_state.data["future"][0]["o"].pop(option_index)
+        update_url()
 
-if st.session_state.future_to_delete is not None:
-    st.session_state.future_trade.pop(st.session_state.future_to_delete)
-    st.session_state.future_to_delete = None
-
-for i, option_indices in st.session_state.future_option_to_delete.items():
-    for j in sorted(option_indices, reverse=True):
-        if i < len(st.session_state.future_trade) and j < len(st.session_state.future_trade[i]["options"]):
-            st.session_state.future_trade[i]["options"].pop(j)
-st.session_state.future_option_to_delete = {}
+# ========== Calculation Functions ==========
+def calculate_totals():
+    """Calculate all totals from current data"""
+    data = st.session_state.data
+    
+    # Held trades
+    held_qty = 0
+    held_cost = 0
+    for trade in data["held"]:
+        q = trade.get("q", 0)
+        p = trade.get("p", 0)
+        held_qty += q
+        held_cost += q * p
+    
+    # Option profits
+    option_profit = 0
+    for trade in data["held"]:
+        for opt in trade.get("o", []):
+            option_profit += opt.get("q", 0) * opt.get("p", 0)
+    for trade in data["sold"]:
+        for opt in trade.get("o", []):
+            option_profit += opt.get("q", 0) * opt.get("p", 0)
+    for trade in data["future"]:
+        for opt in trade.get("o", []):
+            option_profit += opt.get("q", 0) * opt.get("p", 0)
+    
+    # Sold profits
+    sold_profit = 0
+    for trade in data["sold"]:
+        q = trade.get("q", 0)
+        p = trade.get("p", 0)  # avg price
+        s = trade.get("s", 0)  # sold price
+        sold_profit += q * (s - p)
+    
+    # Future profits
+    future_profit = 0
+    for trade in data["future"]:
+        q = trade.get("q", 0)
+        p = trade.get("p", 0)  # avg price
+        s = trade.get("s", 0)  # sold price
+        future_profit += q * (s - p)
+    
+    # Future + Held
+    future_held_qty = held_qty
+    future_held_cost = held_cost
+    for trade in data["future"]:
+        q = trade.get("q", 0)
+        p = trade.get("p", 0)
+        future_held_qty += q
+        future_held_cost += q * p
+    
+    return {
+        "held_qty": held_qty,
+        "held_cost": held_cost,
+        "option_profit": option_profit,
+        "sold_profit": sold_profit,
+        "future_profit": future_profit,
+        "future_held_qty": future_held_qty,
+        "future_held_cost": future_held_cost
+    }
 
 # ========== UI ==========
 st.title("📈 Greek Offset Calculator")
 
-# ===== held Section =====
+# ===== Held Section =====
 st.header("📌 Enter The Trades That You Are Currently Holding")
 
 if st.button("➕ Add Trade to Held Section"):
     add_held_trade()
     st.rerun()
 
-for i, trade in enumerate(st.session_state.held_trades):
+for i, trade in enumerate(st.session_state.data["held"]):
     st.subheader(f"Held Stock Trade {i + 1}")
 
-    if st.button(f"➖ Remove Trade {i + 1}", key=f"remove_held_trade_{i}"):
-        st.session_state.held_to_delete = i
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
+    
+    # Quantity
+    q_key = f"h_q_{i}"
+    new_q = col1.number_input("Quantity", value=trade.get("q", 0), key=q_key)
+    if new_q != trade.get("q", 0):
+        trade["q"] = new_q
+        update_url()
+    
+    # Avg Price
+    p_key = f"h_p_{i}"
+    new_p = col2.number_input("Avg Price", value=trade.get("p", 0.0), key=p_key, format="%.2f")
+    if new_p != trade.get("p", 0.0):
+        trade["p"] = new_p
+        update_url()
+    
+    # Total Cost (calculated)
+    total_cost = trade.get("q", 0) * trade.get("p", 0)
+    col3.number_input("Total Cost", value=total_cost, key=f"h_c_{i}", disabled=True, format="%.2f")
+    
+    # Remove button
+    if col4.button("🗑️", key=f"rem_h_{i}"):
+        remove_held_trade(i)
         st.rerun()
 
-    cols = st.columns(3)
-
-    # Store values directly in session state with unique keys
-    quantity_key = f"hold_qty_{i}"
-    price_key = f"hold_avg_{i}"
-
-    # Get current values from trade or use defaults
-    current_qty = trade.get("quantity", 0)
-    current_price = trade.get("avg_price", 0.0)
-
-    # Input fields
-    new_qty = cols[0].number_input(f"Quantity {i + 1}", value=current_qty, key=quantity_key)
-    new_price = cols[1].number_input(f"AVG Price {i + 1}", value=current_price, key=price_key, format="%.2f")
-
-    # Update trade dictionary with new values
-    trade["quantity"] = new_qty
-    trade["avg_price"] = new_price
-
-    # Calculate and display total cost
-    total_cost = new_qty * new_price
-    cols[2].number_input(f"Total Cost {i + 1}", value=total_cost, key=f"hold_cost_{i}", disabled=True, format="%.2f")
-
+    # Options
     st.markdown("**Options Trades**")
-    for j, option in enumerate(trade.get("options", [])):
-        pcols = st.columns(4)
-
-        opt_qty_key = f"hold_option_qty_{i}_{j}"
-        opt_prem_key = f"hold_option_premium_{i}_{j}"
-
-        current_opt_qty = option.get("quantity", 0)
-        current_opt_prem = option.get("premium", 0.0)
-
-        new_opt_qty = pcols[0].number_input(f"Option {j + 1} Qty", value=current_opt_qty, key=opt_qty_key)
-        new_opt_prem = pcols[1].number_input(f"Premium {j + 1}", value=current_opt_prem, key=opt_prem_key,
-                                             format="%.2f")
-
-        # Update option dictionary
-        option["quantity"] = new_opt_qty
-        option["premium"] = new_opt_prem
-
-        # Calculate and display option profit
-        opt_profit = new_opt_qty * new_opt_prem
-        pcols[2].number_input(f"Profit {j + 1}", value=opt_profit, key=f"hold_option_profit_{i}_{j}", disabled=True,
-                              format="%.2f")
-
-        if pcols[3].button("➖", key=f"remove_hold_option_{i}_{j}"):
-            if i not in st.session_state.held_option_to_delete:
-                st.session_state.held_option_to_delete[i] = []
-            st.session_state.held_option_to_delete[i].append(j)
+    for j, opt in enumerate(trade.get("o", [])):
+        ocol1, ocol2, ocol3, ocol4 = st.columns([2, 2, 2, 1])
+        
+        # Option quantity
+        oq_key = f"h_oq_{i}_{j}"
+        new_oq = ocol1.number_input(f"Opt {j+1} Qty", value=opt.get("q", 0), key=oq_key)
+        if new_oq != opt.get("q", 0):
+            opt["q"] = new_oq
+            update_url()
+        
+        # Option premium
+        op_key = f"h_op_{i}_{j}"
+        new_op = ocol2.number_input(f"Premium", value=opt.get("p", 0.0), key=op_key, format="%.2f")
+        if new_op != opt.get("p", 0.0):
+            opt["p"] = new_op
+            update_url()
+        
+        # Option profit (calculated)
+        opt_profit = opt.get("q", 0) * opt.get("p", 0)
+        ocol3.number_input("Profit", value=opt_profit, key=f"h_oprof_{i}_{j}", disabled=True, format="%.2f")
+        
+        # Remove option button
+        if ocol4.button("🗑️", key=f"rem_ho_{i}_{j}"):
+            remove_held_option(i, j)
             st.rerun()
-
-    if st.button(f"➕ Add Option to Held Trade {i + 1}", key=f"add_hold_option_{i}"):
-        if "options" not in trade:
-            trade["options"] = []
-        trade["options"].append({"quantity": 0, "premium": 0.0})
+    
+    if st.button(f"➕ Add Option", key=f"add_ho_{i}"):
+        add_held_option(i)
         st.rerun()
-
+    
     st.markdown("---")
 
 st.markdown("---")
@@ -174,68 +246,69 @@ if st.button("➕ Add Trade to Sold Section"):
     add_sold_trade()
     st.rerun()
 
-for i, trade in enumerate(st.session_state.sold_trades):
+for i, trade in enumerate(st.session_state.data["sold"]):
     st.subheader(f"Sold Trade {i + 1}")
 
-    if st.button(f"➖ Remove Sold Trade {i + 1}", key=f"remove_sold_trade_{i}"):
-        st.session_state.sold_to_delete = i
+    col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
+    
+    # Quantity
+    q_key = f"s_q_{i}"
+    new_q = col1.number_input("Quantity", value=trade.get("q", 0), key=q_key)
+    if new_q != trade.get("q", 0):
+        trade["q"] = new_q
+        update_url()
+    
+    # Avg Price
+    p_key = f"s_p_{i}"
+    new_p = col2.number_input("Avg Price", value=trade.get("p", 0.0), key=p_key, format="%.2f")
+    if new_p != trade.get("p", 0.0):
+        trade["p"] = new_p
+        update_url()
+    
+    # Strike Price
+    s_key = f"s_s_{i}"
+    new_s = col3.number_input("Strike", value=trade.get("s", 0.0), key=s_key, format="%.2f")
+    if new_s != trade.get("s", 0.0):
+        trade["s"] = new_s
+        update_url()
+    
+    # Profit (calculated)
+    profit = trade.get("q", 0) * (trade.get("s", 0) - trade.get("p", 0))
+    col4.number_input("Profit", value=profit, key=f"s_prof_{i}", disabled=True, format="%.2f")
+    
+    # Remove button
+    if col5.button("🗑️", key=f"rem_s_{i}"):
+        remove_sold_trade(i)
         st.rerun()
 
-    cols = st.columns(4)
-
-    qty_key = f"sold_qty_{i}"
-    avg_key = f"sold_avg_{i}"
-    strike_key = f"sold_price_{i}"
-
-    current_qty = trade.get("quantity", 0)
-    current_avg = trade.get("avg_price", 0.0)
-    current_strike = trade.get("sold_price", 0.0)
-
-    new_qty = cols[0].number_input(f"Quantity {i + 1}", value=current_qty, key=qty_key)
-    new_avg = cols[1].number_input(f"AVG Price {i + 1}", value=current_avg, key=avg_key, format="%.2f")
-    new_strike = cols[2].number_input(f"Strike Price {i + 1}", value=current_strike, key=strike_key, format="%.2f")
-
-    trade["quantity"] = new_qty
-    trade["avg_price"] = new_avg
-    trade["sold_price"] = new_strike
-
-    # Calculate and display profit
-    profit = new_qty * (new_strike - new_avg)
-    cols[3].number_input(f"Profit {i + 1}", value=profit, key=f"sold_profit_{i}", disabled=True, format="%.2f")
-
+    # Options
     st.markdown("**Options Trades**")
-    for j, option in enumerate(trade.get("options", [])):
-        pcols = st.columns(4)
-
-        opt_qty_key = f"sold_option_qty_{i}_{j}"
-        opt_prem_key = f"sold_option_premium_{i}_{j}"
-
-        current_opt_qty = option.get("quantity", 0)
-        current_opt_prem = option.get("premium", 0.0)
-
-        new_opt_qty = pcols[0].number_input(f"Option {j + 1} Qty", value=current_opt_qty, key=opt_qty_key)
-        new_opt_prem = pcols[1].number_input(f"Premium {j + 1}", value=current_opt_prem, key=opt_prem_key,
-                                             format="%.2f")
-
-        option["quantity"] = new_opt_qty
-        option["premium"] = new_opt_prem
-
-        opt_profit = new_opt_qty * new_opt_prem
-        pcols[2].number_input(f"Profit {j + 1}", value=opt_profit, key=f"sold_option_profit_{i}_{j}", disabled=True,
-                              format="%.2f")
-
-        if pcols[3].button("➖", key=f"remove_sold_option_{i}_{j}"):
-            if i not in st.session_state.sold_option_to_delete:
-                st.session_state.sold_option_to_delete[i] = []
-            st.session_state.sold_option_to_delete[i].append(j)
+    for j, opt in enumerate(trade.get("o", [])):
+        ocol1, ocol2, ocol3, ocol4 = st.columns([2, 2, 2, 1])
+        
+        oq_key = f"s_oq_{i}_{j}"
+        new_oq = ocol1.number_input(f"Opt {j+1} Qty", value=opt.get("q", 0), key=oq_key)
+        if new_oq != opt.get("q", 0):
+            opt["q"] = new_oq
+            update_url()
+        
+        op_key = f"s_op_{i}_{j}"
+        new_op = ocol2.number_input(f"Premium", value=opt.get("p", 0.0), key=op_key, format="%.2f")
+        if new_op != opt.get("p", 0.0):
+            opt["p"] = new_op
+            update_url()
+        
+        opt_profit = opt.get("q", 0) * opt.get("p", 0)
+        ocol3.number_input("Profit", value=opt_profit, key=f"s_oprof_{i}_{j}", disabled=True, format="%.2f")
+        
+        if ocol4.button("🗑️", key=f"rem_so_{i}_{j}"):
+            remove_sold_option(i, j)
             st.rerun()
-
-    if st.button(f"➕ Add Option to Sold Trade {i + 1}", key=f"add_sold_option_{i}"):
-        if "options" not in trade:
-            trade["options"] = []
-        trade["options"].append({"quantity": 0, "premium": 0.0})
+    
+    if st.button(f"➕ Add Option", key=f"add_so_{i}"):
+        add_sold_option(i)
         st.rerun()
-
+    
     st.markdown("---")
 
 st.markdown("---")
@@ -243,203 +316,134 @@ st.markdown("---")
 # ===== Future Section =====
 st.header("📌 Enter The Future Trade You Would Like To Place")
 
-if len(st.session_state.future_trade) == 0:
+if len(st.session_state.data["future"]) == 0:
     if st.button("➕ Add Trade to Future Section"):
         add_future_trade()
         st.rerun()
 
-for i, trade in enumerate(st.session_state.future_trade):
-    if st.button(f"➖ Remove Trade", key=f"remove_future_trade"):
-        st.session_state.future_to_delete = i
+for i, trade in enumerate(st.session_state.data["future"]):
+    col1, col2, col3, col4, col5, col6 = st.columns([2, 2, 2, 2, 2, 1])
+    
+    # Quantity
+    q_key = "f_q"
+    new_q = col1.number_input("Quantity", value=trade.get("q", 0), key=q_key)
+    if new_q != trade.get("q", 0):
+        trade["q"] = new_q
+        update_url()
+    
+    # Avg Price
+    p_key = "f_p"
+    new_p = col2.number_input("Avg Price", value=trade.get("p", 0.0), key=p_key, format="%.2f")
+    if new_p != trade.get("p", 0.0):
+        trade["p"] = new_p
+        update_url()
+    
+    # Total Cost (calculated)
+    total_cost = trade.get("q", 0) * trade.get("p", 0)
+    col3.number_input("Total Cost", value=total_cost, key="f_c", disabled=True, format="%.2f")
+    
+    # Strike Price
+    s_key = "f_s"
+    new_s = col4.number_input("Strike", value=trade.get("s", 0.0), key=s_key, format="%.2f")
+    if new_s != trade.get("s", 0.0):
+        trade["s"] = new_s
+        update_url()
+    
+    # Profit (calculated)
+    profit = trade.get("q", 0) * (trade.get("s", 0) - trade.get("p", 0))
+    col5.number_input("Profit", value=profit, key="f_prof", disabled=True, format="%.2f")
+    
+    # Remove button
+    if col6.button("🗑️", key="rem_f"):
+        remove_future_trade()
         st.rerun()
 
-    cols = st.columns(5)
-
-    qty_key = "future_qty"
-    avg_key = "future_avg"
-    strike_key = "future_sold_price"
-
-    current_qty = trade.get("quantity", 0)
-    current_avg = trade.get("avg_price", 0.0)
-    current_strike = trade.get("sold_price", 0.0)
-
-    new_qty = cols[0].number_input("Quantity", value=current_qty, key=qty_key)
-    new_avg = cols[1].number_input("AVG Price", value=current_avg, key=avg_key, format="%.2f")
-
-    trade["quantity"] = new_qty
-    trade["avg_price"] = new_avg
-
-    total_cost = new_qty * new_avg
-    cols[2].number_input("Total Cost", value=total_cost, key="future_cost", disabled=True, format="%.2f")
-
-    new_strike = cols[3].number_input("Strike Price", value=current_strike, key=strike_key, format="%.2f")
-    trade["sold_price"] = new_strike
-
-    profit = new_qty * (new_strike - new_avg)
-    cols[4].number_input("Profit", value=profit, key="future_sold_profit", disabled=True, format="%.2f")
-
+    # Options
     st.markdown("**Options Trades**")
-    for j, option in enumerate(trade.get("options", [])):
-        pcols = st.columns(4)
-
-        opt_qty_key = f"future_option_qty_{j}"
-        opt_prem_key = f"future_option_premium_{j}"
-
-        current_opt_qty = option.get("quantity", 0)
-        current_opt_prem = option.get("premium", 0.0)
-
-        new_opt_qty = pcols[0].number_input("Option Qty", value=current_opt_qty, key=opt_qty_key)
-        new_opt_prem = pcols[1].number_input("Premium", value=current_opt_prem, key=opt_prem_key, format="%.2f")
-
-        option["quantity"] = new_opt_qty
-        option["premium"] = new_opt_prem
-
-        opt_profit = new_opt_qty * new_opt_prem
-        pcols[2].number_input("Profit", value=opt_profit, key=f"future_option_profit_{j}", disabled=True, format="%.2f")
-
-        if pcols[3].button("➖", key=f"remove_future_option_{j}"):
-            if i not in st.session_state.future_option_to_delete:
-                st.session_state.future_option_to_delete[i] = []
-            st.session_state.future_option_to_delete[i].append(j)
+    for j, opt in enumerate(trade.get("o", [])):
+        ocol1, ocol2, ocol3, ocol4 = st.columns([2, 2, 2, 1])
+        
+        oq_key = f"f_oq_{j}"
+        new_oq = ocol1.number_input(f"Opt {j+1} Qty", value=opt.get("q", 0), key=oq_key)
+        if new_oq != opt.get("q", 0):
+            opt["q"] = new_oq
+            update_url()
+        
+        op_key = f"f_op_{j}"
+        new_op = ocol2.number_input(f"Premium", value=opt.get("p", 0.0), key=op_key, format="%.2f")
+        if new_op != opt.get("p", 0.0):
+            opt["p"] = new_op
+            update_url()
+        
+        opt_profit = opt.get("q", 0) * opt.get("p", 0)
+        ocol3.number_input("Profit", value=opt_profit, key=f"f_oprof_{j}", disabled=True, format="%.2f")
+        
+        if ocol4.button("🗑️", key=f"rem_fo_{j}"):
+            remove_future_option(j)
             st.rerun()
-
-    if len(trade.get("options", [])) == 0:
-        if st.button("➕ Add Option to Future Trade", key="add_future_option"):
-            if "options" not in trade:
-                trade["options"] = []
-            trade["options"].append({"quantity": 0, "premium": 0.0})
+    
+    if len(trade.get("o", [])) == 0:
+        if st.button("➕ Add Option", key="add_fo"):
+            add_future_option()
             st.rerun()
-
+    
     st.markdown("---")
 
 st.markdown("---")
 
-
-# ===== Helper function to calculate totals =====
-def calculate_totals():
-    """Calculate all totals from current session state"""
-
-    # Held trades totals
-    held_qty = sum(trade.get("quantity", 0) for trade in st.session_state.held_trades)
-    held_cost = sum(trade.get("quantity", 0) * trade.get("avg_price", 0) for trade in st.session_state.held_trades)
-
-    # Option profits from all sections
-    option_profit = 0
-    for trade in st.session_state.held_trades:
-        for option in trade.get("options", []):
-            option_profit += option.get("quantity", 0) * option.get("premium", 0)
-
-    for trade in st.session_state.sold_trades:
-        for option in trade.get("options", []):
-            option_profit += option.get("quantity", 0) * option.get("premium", 0)
-
-    for trade in st.session_state.future_trade:
-        for option in trade.get("options", []):
-            option_profit += option.get("quantity", 0) * option.get("premium", 0)
-
-    # Sold trades profit
-    sold_profit = 0
-    for trade in st.session_state.sold_trades:
-        qty = trade.get("quantity", 0)
-        sold_profit += qty * (trade.get("sold_price", 0) - trade.get("avg_price", 0))
-
-    # Future trade profit
-    future_profit = 0
-    for trade in st.session_state.future_trade:
-        qty = trade.get("quantity", 0)
-        future_profit += qty * (trade.get("sold_price", 0) - trade.get("avg_price", 0))
-
-    # Future + Held qty and cost
-    future_held_qty = held_qty
-    future_held_cost = held_cost
-    for trade in st.session_state.future_trade:
-        future_held_qty += trade.get("quantity", 0)
-        future_held_cost += trade.get("quantity", 0) * trade.get("avg_price", 0)
-
-    return {
-        "held_qty": held_qty,
-        "held_cost": held_cost,
-        "option_profit": option_profit,
-        "sold_profit": sold_profit,
-        "future_profit": future_profit,
-        "future_held_qty": future_held_qty,
-        "future_held_cost": future_held_cost
-    }
-
-
-# Get current totals
+# ===== Results =====
 totals = calculate_totals()
 
 col1, col2 = st.columns(2)
 
-# ===== Left Column =====
 with col1:
-    st.header("📊 Trades Summary If Future Trade Is Exercised")
-
-    total_profit_exer = totals["option_profit"] + totals["sold_profit"] + totals["future_profit"]
-
-    st.markdown(f"**Total Quantity of Shares:** {totals['held_qty']}")
-    st.markdown(f"**Total Cost:** ${totals['held_cost']:,.2f}")
-    st.markdown(f"**Total Profit:** ${total_profit_exer:,.2f}")
-
+    st.header("📊 If Future Trade Is Exercised")
+    
+    total_profit = totals["option_profit"] + totals["sold_profit"] + totals["future_profit"]
+    
+    st.metric("Total Quantity", f"{totals['held_qty']}")
+    st.metric("Total Cost", f"${totals['held_cost']:,.2f}")
+    st.metric("Total Profit", f"${total_profit:,.2f}")
+    
     if totals['held_qty'] > 0:
-        breakeven = (totals['held_cost'] - total_profit_exer) / totals['held_qty']
-        st.success(f"**Breakeven Price:** ${breakeven:,.2f}")
-    else:
-        st.success(f"**Breakeven Price:** $0.00")
-
+        breakeven = (totals['held_cost'] - total_profit) / totals['held_qty']
+        st.success(f"**Breakeven:** ${breakeven:,.2f}")
+    
     st.markdown("---")
-
-    st.header("📉 Selling the Shares If Future Trade Is Exercised")
-    st.markdown(
-        "<h4>Note: In case of making a change in the above trades, re-enter the Selling Price for updated calculations.</h4>",
-        unsafe_allow_html=True)
-
-    selling_price_exer = st.number_input("**Selling Price**", min_value=0.0, step=0.01, key="selling_price_exer",
-                                         format="%.2f")
-
-    current_value = totals['held_qty'] * selling_price_exer
-    adjusted_cost = totals['held_cost'] - total_profit_exer
+    st.header("📉 Sell Shares")
+    
+    sell_price = st.number_input("Selling Price", min_value=0.0, step=0.01, key="sell_exer", format="%.2f")
+    
+    current_value = totals['held_qty'] * sell_price
+    adjusted_cost = totals['held_cost'] - total_profit
     net_pl = current_value - adjusted_cost
-    pl_pct = (net_pl / adjusted_cost * 100) if adjusted_cost != 0 else 0.0
+    
+    st.metric("Current Value", f"${current_value:,.2f}")
+    st.metric("Adjusted Cost", f"${adjusted_cost:,.2f}")
+    st.metric("Net P/L", f"${net_pl:,.2f}")
 
-    st.markdown(f"**Current Shares Value:** ${current_value:,.2f}")
-    st.markdown(f"**Adjusted Cost:** ${adjusted_cost:,.2f}")
-    st.success(f"**Net Profit/Loss:** ${net_pl:,.2f}")
-    st.success(f"**Profit/Loss Percentage:** {pl_pct:.2f}%")
-
-# ===== Right Column =====
 with col2:
-    st.header("📊 Trades Summary If Future Trade Is NOT Exercised")
-
-    total_profit_not_exer = totals["option_profit"] + totals["sold_profit"]
-
-    st.markdown(f"**Total Quantity of Shares:** {totals['future_held_qty']}")
-    st.markdown(f"**Total Cost:** ${totals['future_held_cost']:,.2f}")
-    st.markdown(f"**Total Profit:** ${total_profit_not_exer:,.2f}")
-
+    st.header("📊 If Future Trade Is NOT Exercised")
+    
+    total_profit = totals["option_profit"] + totals["sold_profit"]
+    
+    st.metric("Total Quantity", f"{totals['future_held_qty']}")
+    st.metric("Total Cost", f"${totals['future_held_cost']:,.2f}")
+    st.metric("Total Profit", f"${total_profit:,.2f}")
+    
     if totals['future_held_qty'] > 0:
-        breakeven = (totals['future_held_cost'] - total_profit_not_exer) / totals['future_held_qty']
-        st.success(f"**Breakeven Price:** ${breakeven:,.2f}")
-    else:
-        st.success(f"**Breakeven Price:** $0.00")
-
+        breakeven = (totals['future_held_cost'] - total_profit) / totals['future_held_qty']
+        st.success(f"**Breakeven:** ${breakeven:,.2f}")
+    
     st.markdown("---")
-
-    st.header("📉 Selling the Shares If Future Trade Is NOT Exercised")
-    st.markdown(
-        "<h4>Note: In case of making a change in the above trades, re-enter the Selling Price for updated calculations.</h4>",
-        unsafe_allow_html=True)
-
-    selling_price_not_exer = st.number_input("**Selling Price**", min_value=0.0, step=0.01,
-                                             key="selling_price_not_exer", format="%.2f")
-
-    current_value = totals['future_held_qty'] * selling_price_not_exer
-    adjusted_cost = totals['future_held_cost'] - total_profit_not_exer
+    st.header("📉 Sell Shares")
+    
+    sell_price = st.number_input("Selling Price", min_value=0.0, step=0.01, key="sell_not_exer", format="%.2f")
+    
+    current_value = totals['future_held_qty'] * sell_price
+    adjusted_cost = totals['future_held_cost'] - total_profit
     net_pl = current_value - adjusted_cost
-    pl_pct = (net_pl / adjusted_cost * 100) if adjusted_cost != 0 else 0.0
-
-    st.markdown(f"**Current Shares Value:** ${current_value:,.2f}")
-    st.markdown(f"**Adjusted Cost:** ${adjusted_cost:,.2f}")
-    st.success(f"**Net Profit/Loss:** ${net_pl:,.2f}")
-    st.success(f"**Profit/Loss Percentage:** {pl_pct:.2f}%")
+    
+    st.metric("Current Value", f"${current_value:,.2f}")
+    st.metric("Adjusted Cost", f"${adjusted_cost:,.2f}")
+    st.metric("Net P/L", f"${net_pl:,.2f}")
