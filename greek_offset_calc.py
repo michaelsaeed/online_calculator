@@ -382,3 +382,85 @@ with col2:
     st.markdown(f"**Adjusted Cost:** ${adjusted_cost_not_exer:,.2f}")
     st.success(f"**Net Profit/Loss:** ${net_profit_loss_not_exer:,.2f}")
     st.success(f"**Profit/Loss Percentage:** {profit_loss_pct_not_exer:.2f}%")
+
+st.markdown("---")  # adds a horizontal line
+
+import pandas as pd
+import io
+
+# ===== Download Trades Excel =====
+st.header("💾 Download Trades Spreadsheet")
+
+# Combine all trades into one DataFrame
+all_trades = []
+
+for trade_list, trade_type in [
+    (st.session_state.held_trades, "Held"),
+    (st.session_state.sold_trades, "Sold"),
+    (st.session_state.future_trade, "Future")
+]:
+    for i, trade in enumerate(trade_list):
+        base = {
+            "Trade Type": trade_type,
+            "Trade #": i + 1,
+            "Quantity": trade["quantity"],
+            "Stock Price": trade.get("avg_price", 0.0),
+            "Sold Price": trade.get("sold_price", 0.0),
+            "Total Cost": trade.get("total_cost", 0.0),
+            "Profit": trade.get("profit", 0.0)
+        }
+        # Add options if any
+        if trade["options"]:
+            for j, option in enumerate(trade["options"]):
+                row = base.copy()
+                row.update({
+                    "Option #": j + 1,
+                    "Option Quantity": option["quantity"],
+                    "Option Premium": option["premium"],
+                    "Option Profit": option["profit"]
+                })
+                all_trades.append(row)
+        else:
+            row = base.copy()
+            row.update({
+                "Option #": "",
+                "Option Quantity": "",
+                "Option Premium": "",
+                "Option Profit": ""
+            })
+            all_trades.append(row)
+
+df = pd.DataFrame(all_trades)
+
+# Create Excel in-memory
+excel_buffer = io.BytesIO()
+with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+    df.to_excel(writer, index=False, sheet_name="Trades")
+    worksheet = writer.sheets["Trades"]
+    workbook = writer.book
+
+    # Format: Left-aligned + full border for all cells
+    full_border_format = workbook.add_format({"align": "left", "valign": "vcenter", "border": 1})
+
+    # Adjust column widths and apply formats
+    for i, col in enumerate(df.columns):
+        max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+        worksheet.set_column(i, i, max_len)  # set width first
+
+        for row_num, value in enumerate(df[col], start=1):  # +1 for header
+            worksheet.write(row_num, i, value, full_border_format)
+
+    # Format header row
+    header_format = workbook.add_format({"bold": True, "align": "left", "valign": "vcenter", "border": 1})
+    for i, col in enumerate(df.columns):
+        worksheet.write(0, i, col, header_format)
+
+excel_data = excel_buffer.getvalue()
+
+# Single download button
+st.download_button(
+    label="📥 Download Trades Spreadsheet",
+    data=excel_data,
+    file_name="trades_export.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
