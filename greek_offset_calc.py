@@ -33,10 +33,10 @@ if "future_trade" not in st.session_state:
 if "add_option_future_index" in st.session_state:
     i = st.session_state.add_option_future_index
     st.session_state.future_trade[i]["options"].append({
-        "quantity": st.session_state.future_trade[i]["quantity"],
+        "quantity": 0,
         "premium": 0.0,
-        "profit": 0.0}
-    )
+        "profit": 0.0
+    })
     del st.session_state.add_option_future_index
 
 # Initialize deletion trackers if they don't exist
@@ -115,12 +115,6 @@ st.session_state.sold_option_to_delete = {}
 if st.session_state.future_to_delete is not None:
     st.session_state.future_trade.pop(st.session_state.future_to_delete)
     st.session_state.future_to_delete = None
-
-for i, option_indices in st.session_state.future_option_to_delete.items():
-    for j in sorted(option_indices, reverse=True):
-        if i < len(st.session_state.future_trade) and j < len(st.session_state.future_trade[i]["options"]):
-            st.session_state.future_trade[i]["options"].pop(j)
-st.session_state.future_option_to_delete = {}
 
 
 # ========== UI ==========
@@ -228,60 +222,57 @@ st.markdown("---")  # adds a horizontal line
 
 
 # ===== Future Section =====
-st.header("📌 Enter The Future Trade You Would Like To Place")
+st.header("📌 Enter The Future Trades You Would Like To Place")
 
-# Allow only ONE trade
-if len(st.session_state.future_trade) == 0:
-    if st.button("➕ Add Trade to Future Section"):
-        add_future_trade()
-        st.rerun()
+# Add Trade button (now allows multiple trades)
+if st.button("➕ Add Trade to Future Section"):
+    add_future_trade()
+    st.rerun()
 
 for i, trade in enumerate(st.session_state.future_trade):
 
-    if st.button(f"➖ Remove Trade", key=f"remove_future_trade"):
+    if st.button(f"➖ Remove Future Trade {i + 1}", key=f"remove_future_trade_{i}"):
         st.session_state.future_to_delete = i
         st.rerun()
 
     cols = st.columns(5)
-    trade["quantity"] = cols[0].number_input(f"Quantity", value=trade["quantity"], key=f"future_qty")
-    trade["avg_price"] = cols[1].number_input(f"Stock Price", value=trade["avg_price"], key=f"future_avg")
+    trade["quantity"] = cols[0].number_input(f"Quantity {i + 1}", value=trade["quantity"], key=f"future_qty_{i}")
+    trade["avg_price"] = cols[1].number_input(f"Stock Price {i + 1}", value=trade["avg_price"], key=f"future_avg_{i}")
 
     # Auto-calculate Total Cost
     trade["total_cost"] = trade["quantity"] * trade["avg_price"]
-    st.session_state["future_cost"] = trade["total_cost"]
-    cols[2].number_input("Total Cost", key="future_cost", disabled=True)
+    cols[2].number_input(f"Total Cost {i + 1}", value=trade["total_cost"], key=f"future_cost_{i}", disabled=True)
 
-    trade["sold_price"] = cols[3].number_input(f"Strike Price", value=trade["sold_price"], key=f"future_sold_price")
+    trade["sold_price"] = cols[3].number_input(f"Strike Price {i + 1}", value=trade["sold_price"], key=f"future_sold_price_{i}")
 
     # Auto-calculate Profit
     trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
-    st.session_state["future_sold_profit"] = trade["profit"]
-    cols[4].number_input("Profit", key="future_sold_profit", disabled=True)
+    cols[4].number_input(f"Profit {i + 1}", value=trade["profit"], key=f"future_sold_profit_{i}", disabled=True)
 
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
         pcols = st.columns(4)
+
+        # Option quantity syncs with stock quantity, uneditable
         option["quantity"] = trade["quantity"]
-        st.session_state["future_option_qty"] = option["quantity"]
-        pcols[0].number_input(f"Option Qty", key="future_option_qty", disabled=True, step=1, format="%d")
-        option["premium"] = pcols[1].number_input(f"Premium", value=option["premium"], key=f"future_option_premium")
+        pcols[0].number_input(f"Option {j + 1} Qty (Future {i + 1})", value=option["quantity"], key=f"future_option_qty_{i}_{j}", disabled=True, step=1, format="%d")
+
+        option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Future {i + 1})", value=option["premium"], key=f"future_option_premium_{i}_{j}")
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
-        pcols[2].number_input(f"Profit", value=option["profit"],
-                              key=f"future_option_profit", disabled=True)
+        pcols[2].number_input(f"Profit {j + 1} (Future {i + 1})", value=option["profit"], key=f"future_option_profit_{i}_{j}", disabled=True)
 
-        if pcols[3].button("➖", key=f"remove_future_option"):
+        if pcols[3].button("➖", key=f"remove_future_option_{i}_{j}"):
             if i not in st.session_state.future_option_to_delete:
                 st.session_state.future_option_to_delete[i] = []
             st.session_state.future_option_to_delete[i].append(j)
             st.rerun()
 
-    # Allow only ONE option
-    if len(trade["options"]) == 0:
-        if st.button(f"➕ Add Option to Future Trade", key=f"add_future_option"):
-            st.session_state.add_option_future_index = i
-            st.rerun()
+    # Add Option button
+    if st.button(f"➕ Add Option to Future Trade {i + 1}", key=f"add_future_option_{i}"):
+        st.session_state.add_option_future_index = i
+        st.rerun()
 
     st.markdown("---")
 
