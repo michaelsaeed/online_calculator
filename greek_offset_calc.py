@@ -394,7 +394,7 @@ with col2:
 st.markdown("---")  # adds a horizontal line
 
 
-st.header("💾 Save or Export Your Trades")
+st.header("💾 Download or Reload Your Trades")
 
 # ---------- 1️⃣ Download Trades JSON for Later Editing ----------
 trades_data = {
