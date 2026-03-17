@@ -246,13 +246,15 @@ for i, trade in enumerate(st.session_state.future_trades):
 
     # Auto-calculate Total Cost
     trade["total_cost"] = trade["quantity"] * trade["avg_price"]
-    cols[2].number_input(f"Total Cost {i + 1}", value=trade["total_cost"], key=f"future_cost_{i}", disabled=True)
+    st.session_state[f"future_cost_{i}"] = trade["total_cost"]
+    cols[2].number_input(f"Total Cost {i + 1}", key=f"future_cost_{i}", disabled=True)
 
     trade["sold_price"] = cols[3].number_input(f"Strike Price {i + 1}", value=trade["sold_price"], key=f"future_sold_price_{i}")
 
     # Auto-calculate Profit
     trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
-    cols[4].number_input(f"Profit {i + 1}", value=trade["profit"], key=f"future_sold_profit_{i}", disabled=True)
+    st.session_state[f"future_sold_profit_{i}"] = trade["profit"]
+    cols[4].number_input(f"Profit {i + 1}", key=f"future_sold_profit_{i}", disabled=True)
 
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
@@ -266,7 +268,8 @@ for i, trade in enumerate(st.session_state.future_trades):
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
-        pcols[2].number_input(f"Profit {j + 1} (Future {i + 1})", value=option["profit"], key=f"future_option_profit_{i}_{j}", disabled=True)
+        st.session_state[f"future_option_profit_{i}_{j}"] = option["profit"]
+        pcols[2].number_input(f"Profit {j + 1} (Future {i + 1})", key=f"future_option_profit_{i}_{j}", disabled=True)
 
         if pcols[3].button("➖", key=f"remove_future_option_{i}_{j}"):
             if i not in st.session_state.future_option_to_delete:
