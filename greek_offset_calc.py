@@ -151,10 +151,10 @@ for i, trade in enumerate(st.session_state.held_trades):
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
         pcols = st.columns(4)
-        option["quantity"] = pcols[0].number_input(f"Option {j + 1} Qty (Held {i + 1})", value=option["quantity"],
-                                                   key=f"hold_option_qty_{i}_{j}")
-        option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Held {i + 1})", value=option["premium"],
-                                                  key=f"hold_option_premium_{i}_{j}")
+        option["quantity"] = trade["quantity"]
+        st.session_state[f"hold_option_qty_{i}_{j}"] = option["quantity"]
+        pcols[0].number_input(f"Option {j + 1} Qty (Held {i + 1})", key=f"hold_option_qty_{i}_{j}", disabled=True, step=1, format="%d")
+        option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Held {i + 1})", value=option["premium"], key=f"hold_option_premium_{i}_{j}")
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
@@ -202,10 +202,10 @@ for i, trade in enumerate(st.session_state.sold_trades):
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
         pcols = st.columns(4)
-        option["quantity"] = pcols[0].number_input(f"Option {j + 1} Qty (Sold {i + 1})", value=option["quantity"],
-                                                   key=f"sold_option_qty_{i}_{j}")
-        option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Sold {i + 1})", value=option["premium"],
-                                                  key=f"sold_option_premium_{i}_{j}")
+        option["quantity"] = trade["quantity"]
+        st.session_state[f"sold_option_qty_{i}_{j}"] = option["quantity"]
+        pcols[0].number_input(f"Option {j + 1} Qty (Sold {i + 1})", key=f"sold_option_qty_{i}_{j}", disabled=True, step=1, format="%d")
+        option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Sold {i + 1})", value=option["premium"], key=f"sold_option_premium_{i}_{j}")
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
@@ -244,7 +244,7 @@ for i, trade in enumerate(st.session_state.future_trade):
 
     cols = st.columns(5)
     trade["quantity"] = cols[0].number_input(f"Quantity", value=trade["quantity"], key=f"future_qty")
-    trade["avg_price"] = cols[1].number_input(f"AVG Price", value=trade["avg_price"], key=f"future_avg")
+    trade["avg_price"] = cols[1].number_input(f"Stock Price", value=trade["avg_price"], key=f"future_avg")
 
     # Auto-calculate Total Cost
     trade["total_cost"] = trade["quantity"] * trade["avg_price"]
@@ -261,10 +261,10 @@ for i, trade in enumerate(st.session_state.future_trade):
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
         pcols = st.columns(4)
-        option["quantity"] = pcols[0].number_input(f"Option Qty", value=option["quantity"],
-                                                   key=f"future_option_qty")
-        option["premium"] = pcols[1].number_input(f"Premium", value=option["premium"],
-                                                  key=f"future_option_premium")
+        option["quantity"] = trade["quantity"]
+        st.session_state["future_option_qty"] = option["quantity"]
+        pcols[0].number_input(f"Option Qty", key="future_option_qty", disabled=True, step=1, format="%d")
+        option["premium"] = pcols[1].number_input(f"Premium", value=option["premium"], key=f"future_option_premium")
 
         # Auto-calculate Option Profit
         option["profit"] = option["quantity"] * option["premium"]
@@ -391,4 +391,3 @@ with col2:
     st.markdown(f"**Adjusted Cost:** ${adjusted_cost_not_exer:,.2f}")
     st.success(f"**Net Profit/Loss:** ${net_profit_loss_not_exer:,.2f}")
     st.success(f"**Profit/Loss Percentage:** {profit_loss_pct_not_exer:.2f}%")
-
