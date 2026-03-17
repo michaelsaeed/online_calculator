@@ -100,6 +100,7 @@ for i, option_indices in st.session_state.held_option_to_delete.items():
             st.session_state.held_trades[i]["options"].pop(j)
 st.session_state.held_option_to_delete = {}
 
+
 if st.session_state.sold_to_delete is not None:
     st.session_state.sold_trades.pop(st.session_state.sold_to_delete)
     st.session_state.sold_to_delete = None
@@ -109,6 +110,7 @@ for i, option_indices in st.session_state.sold_option_to_delete.items():
         if i < len(st.session_state.sold_trades) and j < len(st.session_state.sold_trades[i]["options"]):
             st.session_state.sold_trades[i]["options"].pop(j)
 st.session_state.sold_option_to_delete = {}
+
 
 if st.session_state.future_to_delete is not None:
     st.session_state.future_trade.pop(st.session_state.future_to_delete)
@@ -121,34 +123,6 @@ for i, option_indices in st.session_state.future_option_to_delete.items():
 st.session_state.future_option_to_delete = {}
 
 
-# ========== CALCULATION FUNCTIONS - ADD THIS SECTION ==========
-def update_calculations():
-    """Update all calculated values in session state"""
-    # Update held trades calculations
-    for trade in st.session_state.held_trades:
-        trade["total_cost"] = trade["quantity"] * trade["avg_price"]
-        for option in trade["options"]:
-            option["profit"] = option["quantity"] * option["premium"]
-
-    # Update sold trades calculations
-    for trade in st.session_state.sold_trades:
-        trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
-        for option in trade["options"]:
-            option["profit"] = option["quantity"] * option["premium"]
-
-    # Update future trade calculations
-    for trade in st.session_state.future_trade:
-        trade["total_cost"] = trade["quantity"] * trade["avg_price"]
-        trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
-        for option in trade["options"]:
-            option["profit"] = option["quantity"] * option["premium"]
-
-
-# Run calculations at the beginning of each rerun
-update_calculations()
-# ========== END OF ADDED SECTION ==========
-
-
 # ========== UI ==========
 st.title("📈 Greek Offset Calculator")
 
@@ -157,6 +131,7 @@ st.header("📌 Enter The Trades That You Are Currently Holding")
 
 if st.button("➕ Add Trade to Held Section"):
     add_held_trade()
+    st.rerun()
 
 for i, trade in enumerate(st.session_state.held_trades):
     st.subheader(f"Held Stock Trade {i + 1}")
@@ -166,25 +141,37 @@ for i, trade in enumerate(st.session_state.held_trades):
         st.rerun()
 
     cols = st.columns(3)
-    trade["quantity"] = cols[0].number_input(f"Quantity {i + 1}", value=trade["quantity"], key=f"hold_qty_{i}")
-    trade["avg_price"] = cols[1].number_input(f"AVG Price {i + 1}", value=trade["avg_price"], key=f"hold_avg_{i}")
+    
+    # Update trade values and force recalculation
+    new_quantity = cols[0].number_input(f"Quantity {i + 1}", value=trade["quantity"], key=f"hold_qty_{i}")
+    new_avg_price = cols[1].number_input(f"AVG Price {i + 1}", value=trade["avg_price"], key=f"hold_avg_{i}", format="%.2f")
+    
+    # Update session state with new values
+    if new_quantity != trade["quantity"] or new_avg_price != trade["avg_price"]:
+        trade["quantity"] = new_quantity
+        trade["avg_price"] = new_avg_price
+        trade["total_cost"] = new_quantity * new_avg_price
 
-    # Auto-calculate Total Cost
-    trade["total_cost"] = trade["quantity"] * trade["avg_price"]
-    cols[2].number_input(f"Total Cost {i + 1}", value=trade["total_cost"], key=f"hold_cost_{i}", disabled=True)
+    # Display total cost
+    cols[2].number_input(f"Total Cost {i + 1}", value=trade["total_cost"], key=f"hold_cost_{i}", disabled=True, format="%.2f")
 
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
         pcols = st.columns(4)
-        option["quantity"] = pcols[0].number_input(f"Option {j + 1} Qty (Held {i + 1})", value=option["quantity"],
-                                                   key=f"hold_option_qty_{i}_{j}")
-        option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Held {i + 1})", value=option["premium"],
-                                                  key=f"hold_option_premium_{i}_{j}")
-
-        # Auto-calculate Option Profit
-        option["profit"] = option["quantity"] * option["premium"]
+        
+        new_option_qty = pcols[0].number_input(f"Option {j + 1} Qty (Held {i + 1})", value=option["quantity"],
+                                               key=f"hold_option_qty_{i}_{j}")
+        new_option_premium = pcols[1].number_input(f"Premium {j + 1} (Held {i + 1})", value=option["premium"],
+                                                  key=f"hold_option_premium_{i}_{j}", format="%.2f")
+        
+        # Update option values
+        if new_option_qty != option["quantity"] or new_option_premium != option["premium"]:
+            option["quantity"] = new_option_qty
+            option["premium"] = new_option_premium
+            option["profit"] = new_option_qty * new_option_premium
+        
         pcols[2].number_input(f"Profit {j + 1} (Held {i + 1})", value=option["profit"],
-                              key=f"hold_option_profit_{i}_{j}", disabled=True)
+                              key=f"hold_option_profit_{i}_{j}", disabled=True, format="%.2f")
 
         if pcols[3].button("➖", key=f"remove_hold_option_{i}_{j}"):
             if i not in st.session_state.held_option_to_delete:
@@ -205,6 +192,7 @@ st.header("📌 Enter The Trades That Were Exercised")
 
 if st.button("➕ Add Trade to Sold Section"):
     add_sold_trade()
+    st.rerun()
 
 for i, trade in enumerate(st.session_state.sold_trades):
     st.subheader(f"Sold Trade {i + 1}")
@@ -214,28 +202,38 @@ for i, trade in enumerate(st.session_state.sold_trades):
         st.rerun()
 
     cols = st.columns(4)
-    trade["quantity"] = cols[0].number_input(f"Quantity {i + 1} (Sold)", value=trade["quantity"], key=f"sold_qty_{i}")
-    trade["avg_price"] = cols[1].number_input(f"AVG Price {i + 1} (Sold)", value=trade["avg_price"],
-                                              key=f"sold_avg_{i}")
-    trade["sold_price"] = cols[2].number_input(f"Strike Price {i + 1}", value=trade["sold_price"],
-                                               key=f"sold_price_{i}")
+    
+    new_quantity = cols[0].number_input(f"Quantity {i + 1} (Sold)", value=trade["quantity"], key=f"sold_qty_{i}")
+    new_avg_price = cols[1].number_input(f"AVG Price {i + 1} (Sold)", value=trade["avg_price"],
+                                          key=f"sold_avg_{i}", format="%.2f")
+    new_sold_price = cols[2].number_input(f"Strike Price {i + 1}", value=trade["sold_price"], key=f"sold_price_{i}", format="%.2f")
+    
+    # Update trade values
+    if new_quantity != trade["quantity"] or new_avg_price != trade["avg_price"] or new_sold_price != trade["sold_price"]:
+        trade["quantity"] = new_quantity
+        trade["avg_price"] = new_avg_price
+        trade["sold_price"] = new_sold_price
+        trade["profit"] = new_quantity * (new_sold_price - new_avg_price)
 
-    # Auto-calculate Profit
-    trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
-    cols[3].number_input(f"Profit {i + 1}", value=trade["profit"], key=f"sold_profit_{i}", disabled=True)
+    cols[3].number_input(f"Profit {i + 1}", value=trade["profit"], key=f"sold_profit_{i}", disabled=True, format="%.2f")
 
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
         pcols = st.columns(4)
-        option["quantity"] = pcols[0].number_input(f"Option {j + 1} Qty (Sold {i + 1})", value=option["quantity"],
-                                                   key=f"sold_option_qty_{i}_{j}")
-        option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Sold {i + 1})", value=option["premium"],
-                                                  key=f"sold_option_premium_{i}_{j}")
+        
+        new_option_qty = pcols[0].number_input(f"Option {j + 1} Qty (Sold {i + 1})", value=option["quantity"],
+                                               key=f"sold_option_qty_{i}_{j}")
+        new_option_premium = pcols[1].number_input(f"Premium {j + 1} (Sold {i + 1})", value=option["premium"],
+                                                  key=f"sold_option_premium_{i}_{j}", format="%.2f")
+        
+        # Update option values
+        if new_option_qty != option["quantity"] or new_option_premium != option["premium"]:
+            option["quantity"] = new_option_qty
+            option["premium"] = new_option_premium
+            option["profit"] = new_option_qty * new_option_premium
 
-        # Auto-calculate Option Profit
-        option["profit"] = option["quantity"] * option["premium"]
         pcols[2].number_input(f"Profit {j + 1} (Sold {i + 1})", value=option["profit"],
-                              key=f"sold_option_profit_{i}_{j}", disabled=True)
+                              key=f"sold_option_profit_{i}_{j}", disabled=True, format="%.2f")
 
         if pcols[3].button("➖", key=f"remove_sold_option_{i}_{j}"):
             if i not in st.session_state.sold_option_to_delete:
@@ -250,6 +248,7 @@ for i, trade in enumerate(st.session_state.sold_trades):
     st.markdown("---")
 
 st.markdown("---")  # adds a horizontal line
+
 
 # ===== Future Section =====
 st.header("📌 Enter The Future Trade You Would Like To Place")
@@ -267,31 +266,44 @@ for i, trade in enumerate(st.session_state.future_trade):
         st.rerun()
 
     cols = st.columns(5)
-    trade["quantity"] = cols[0].number_input(f"Quantity", value=trade["quantity"], key=f"future_qty")
-    trade["avg_price"] = cols[1].number_input(f"AVG Price", value=trade["avg_price"], key=f"future_avg")
+    
+    new_quantity = cols[0].number_input(f"Quantity", value=trade["quantity"], key=f"future_qty")
+    new_avg_price = cols[1].number_input(f"AVG Price", value=trade["avg_price"], key=f"future_avg", format="%.2f")
+    
+    # Update trade values
+    if new_quantity != trade["quantity"] or new_avg_price != trade["avg_price"]:
+        trade["quantity"] = new_quantity
+        trade["avg_price"] = new_avg_price
+        trade["total_cost"] = new_quantity * new_avg_price
 
-    # Auto-calculate Total Cost
-    trade["total_cost"] = trade["quantity"] * trade["avg_price"]
-    cols[2].number_input(f"Total Cost", value=trade["total_cost"], key=f"future_cost", disabled=True)
+    cols[2].number_input(f"Total Cost", value=trade["total_cost"], key=f"future_cost", disabled=True, format="%.2f")
 
-    trade["sold_price"] = cols[3].number_input(f"Strike Price", value=trade["sold_price"], key=f"future_sold_price")
+    new_sold_price = cols[3].number_input(f"Strike Price", value=trade["sold_price"], key=f"future_sold_price", format="%.2f")
+    
+    # Update profit if needed
+    if new_sold_price != trade["sold_price"]:
+        trade["sold_price"] = new_sold_price
+        trade["profit"] = trade["quantity"] * (new_sold_price - trade["avg_price"])
 
-    # Auto-calculate Profit
-    trade["profit"] = trade["quantity"] * (trade["sold_price"] - trade["avg_price"])
-    cols[4].number_input(f"Profit", value=trade["profit"], key=f"future_sold_profit", disabled=True)
+    cols[4].number_input(f"Profit", value=trade["profit"], key=f"future_sold_profit", disabled=True, format="%.2f")
 
     st.markdown("**Options Trades**")
     for j, option in enumerate(trade["options"]):
         pcols = st.columns(4)
-        option["quantity"] = pcols[0].number_input(f"Option Qty", value=option["quantity"],
-                                                   key=f"future_option_qty_{j}")
-        option["premium"] = pcols[1].number_input(f"Premium", value=option["premium"],
-                                                  key=f"future_option_premium_{j}")
+        
+        new_option_qty = pcols[0].number_input(f"Option Qty", value=option["quantity"],
+                                               key=f"future_option_qty_{j}")
+        new_option_premium = pcols[1].number_input(f"Premium", value=option["premium"],
+                                                  key=f"future_option_premium_{j}", format="%.2f")
+        
+        # Update option values
+        if new_option_qty != option["quantity"] or new_option_premium != option["premium"]:
+            option["quantity"] = new_option_qty
+            option["premium"] = new_option_premium
+            option["profit"] = new_option_qty * new_option_premium
 
-        # Auto-calculate Option Profit
-        option["profit"] = option["quantity"] * option["premium"]
         pcols[2].number_input(f"Profit", value=option["profit"],
-                              key=f"future_option_profit_{j}", disabled=True)
+                              key=f"future_option_profit_{j}", disabled=True, format="%.2f")
 
         if pcols[3].button("➖", key=f"remove_future_option_{j}"):
             if i not in st.session_state.future_option_to_delete:
@@ -309,10 +321,12 @@ for i, trade in enumerate(st.session_state.future_trade):
 
 st.markdown("---")  # adds a horizontal line
 
+
 col1, col2 = st.columns(2)
 
 # ===== Left Column =====
 with col1:
+
     # ===== Trades Summary If Future Trade is Exercised =====
     st.header("📊 Trades Summary If Future Trade Is Exercised")
 
@@ -346,11 +360,9 @@ with col1:
 
     # ===== Selling the Shares If Future Trade Is Exercised =====
     st.header("📉 Selling the Shares If Future Trade Is Exercised")
-    st.markdown(
-        "<h4>Note: In case of making a change in the above trades, re-enter the Selling Price for updated calculations.</h4>",
-        unsafe_allow_html=True)
+    st.markdown("<h4>Note: In case of making a change in the above trades, re-enter the Selling Price for updated calculations.</h4>", unsafe_allow_html=True)
 
-    selling_price_exer = st.number_input("**Selling Price**", min_value=0.0, step=0.01, key="selling_price_exer")
+    selling_price_exer = st.number_input("**Selling Price**", min_value=0.0, step=0.01, key="selling_price_exer", format="%.2f")
 
     current_value_exer = total_quantity_exer * selling_price_exer
     adjusted_cost_exer = total_cost_exer - total_profit
@@ -363,16 +375,16 @@ with col1:
     st.success(f"**Net Profit/Loss:** ${net_profit_loss_exer:,.2f}")
     st.success(f"**Profit/Loss Percentage:** {profit_loss_pct_exer:.2f}%")
 
+
 # ===== Right Column =====
 with col2:
+
     # ===== Trades Summary If Future Trade is Not Exercised =====
     st.header("📊 Trades Summary If Future Trade Is NOT Exercised")
 
     # Calculate totals
-    total_quantity_not_exer = sum(
-        trade["quantity"] for trade in st.session_state.held_trades + st.session_state.future_trade)
-    total_cost_not_exer = sum(
-        trade["total_cost"] for trade in st.session_state.held_trades + st.session_state.future_trade)
+    total_quantity_not_exer = sum(trade["quantity"] for trade in st.session_state.held_trades + st.session_state.future_trade)
+    total_cost_not_exer = sum(trade["total_cost"] for trade in st.session_state.held_trades + st.session_state.future_trade)
 
     total_option_profit = sum(
         option["profit"]
@@ -399,18 +411,14 @@ with col2:
 
     # ===== Selling the Shares If Future Trade Is Exercised =====
     st.header("📉 Selling the Shares If Future Trade Is NOT Exercised")
-    st.markdown(
-        "<h4>Note: In case of making a change in the above trades, re-enter the Selling Price for updated calculations.</h4>",
-        unsafe_allow_html=True)
+    st.markdown("<h4>Note: In case of making a change in the above trades, re-enter the Selling Price for updated calculations.</h4>", unsafe_allow_html=True)
 
-    selling_price_not_exer = st.number_input("**Selling Price**", min_value=0.0, step=0.01,
-                                             key="selling_price_not_exer")
+    selling_price_not_exer = st.number_input("**Selling Price**", min_value=0.0, step=0.01, key="selling_price_not_exer", format="%.2f")
 
     current_value_not_exer = total_quantity_not_exer * selling_price_not_exer
     adjusted_cost_not_exer = total_cost_not_exer - total_profit
     net_profit_loss_not_exer = current_value_not_exer - adjusted_cost_not_exer
-    profit_loss_pct_not_exer = (
-                net_profit_loss_not_exer / adjusted_cost_not_exer * 100) if adjusted_cost_not_exer != 0 else 0.0
+    profit_loss_pct_not_exer = (net_profit_loss_not_exer / adjusted_cost_not_exer * 100) if adjusted_cost_not_exer != 0 else 0.0
 
     # Display
     st.markdown(f"**Current Shares Value:** ${current_value_not_exer:,.2f}")
