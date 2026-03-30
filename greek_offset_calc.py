@@ -257,13 +257,13 @@ for i, trade in enumerate(st.session_state.future_trades):
     cols[4].number_input(f"Profit {i + 1}", key=f"future_sold_profit_{i}", disabled=True)
 
     st.markdown("**Options Trades**")
+    running_breakeven = trade["avg_price"]  # Start with Stock Price
     for j, option in enumerate(trade["options"]):
-        pcols = st.columns(4)
+        pcols = st.columns(5)  # Changed from 4 to 5 columns
 
         # Option quantity syncs with stock quantity, uneditable
         option["quantity"] = trade["quantity"]
         pcols[0].number_input(f"Option {j + 1} Qty (Future {i + 1})", value=option["quantity"], key=f"future_option_qty_{i}_{j}", disabled=True, step=1, format="%d")
-
         option["premium"] = pcols[1].number_input(f"Premium {j + 1} (Future {i + 1})", value=option["premium"], key=f"future_option_premium_{i}_{j}")
 
         # Auto-calculate Option Profit
@@ -271,7 +271,15 @@ for i, trade in enumerate(st.session_state.future_trades):
         st.session_state[f"future_option_profit_{i}_{j}"] = option["profit"]
         pcols[2].number_input(f"Profit {j + 1} (Future {i + 1})", key=f"future_option_profit_{i}_{j}", disabled=True)
 
-        if pcols[3].button("➖", key=f"remove_future_option_{i}_{j}"):
+        # Auto-calculate Breakeven
+        # Breakeven 1 = Stock Price - Premium 1
+        # Breakeven N = Breakeven (N-1) - Premium N
+        running_breakeven = running_breakeven - option["premium"]
+        option["breakeven"] = running_breakeven
+        st.session_state[f"future_option_breakeven_{i}_{j}"] = option["breakeven"]
+        pcols[3].number_input(f"Breakeven {j + 1} (Future {i + 1})", key=f"future_option_breakeven_{i}_{j}", disabled=True)
+
+        if pcols[4].button("➖", key=f"remove_future_option_{i}_{j}"):  # Moved from pcols[3] to pcols[4]
             if i not in st.session_state.future_option_to_delete:
                 st.session_state.future_option_to_delete[i] = []
             st.session_state.future_option_to_delete[i].append(j)
