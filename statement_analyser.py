@@ -651,7 +651,7 @@ def render_how_it_works():
 # ── UI ────────────────────────────────────────────────────────────────────────
 
 uploaded = st.file_uploader(
-    "Upload IB Activity Statement (PDF)", type=["pdf"], key="uploader"
+    "Upload The Trading Statement (PDF)", type=["pdf"], key="uploader"
 )
 
 if uploaded:
@@ -699,5 +699,5 @@ if uploaded:
     render_how_it_works()
 
 else:
-    st.info("👆 Upload an IB activity statement PDF to get started.")
+    st.info("👆 Upload the trading statement PDF to get started.")
     render_how_it_works()
