@@ -502,7 +502,7 @@ def render_dashboard(trades, period=None):
                     'label':     label,
                     'roi':       round(roi, 2),
                     'ann_roi':   round(ann_roi, 2) if (ann_roi is not None and status == 'Closed') else None,
-                    'days':      days if days else 0,
+                    'days':      days if (days and status != 'Open') else None,
                     'total_pnl': round(total_pnl, 2) if total_pnl else 0,
                     'status':    status,
                     'color':     color,
@@ -519,7 +519,9 @@ def render_dashboard(trades, period=None):
                     marker_color=[c['color'] for c in data_sorted],
                     marker_opacity=0.9,
                     customdata=[
-                        [c['label'], c[y_key], c['total_pnl'], c['days'], c['status'], c.get('roi', 0)]
+                        [c['label'], c[y_key], c['total_pnl'],
+                         '—' if c['days'] is None else f"{c['days']}d",
+                         c['status'], c.get('roi', 0)]
                         for c in data_sorted
                     ],
                     hovertemplate=(
@@ -527,7 +529,7 @@ def render_dashboard(trades, period=None):
                         + (f'ROI: %{{customdata[5]:.2f}}%<br>' if extra_roi else '')
                         + f'{y_label}: %{{customdata[1]:.2f}}%<br>'
                         'Total P&L: $%{customdata[2]:,.2f}<br>'
-                        'Days Held: %{customdata[3]}d<br>'
+                        'Days Held: %{customdata[3]}<br>'
                         'Status: %{customdata[4]}<extra></extra>'
                     ),
                 ))
@@ -707,7 +709,7 @@ def render_cycle(cycle, cycle_num, total_cycles, sym=''):
             c3.metric("ROI", fpct(roi), delta_color="normal" if (roi or 0) >= 0 else "inverse")
             c4.metric("Total P&L", fp(total_pnl, sign=True, decimals=2) if total_pnl is not None else '—',
                       delta_color="normal" if (total_pnl or 0) >= 0 else "inverse")
-            c5.metric("Days Held" if situation == 'exercised' else "Days Open", fdays(days) if situation == 'exercised' else '—')
+            c5.metric("Days Held", fdays(days) if situation == 'exercised' else '—')
     elif situation == 'sell_only':
         if total_pnl is not None:
             st.metric("Total P&L (Options sold)", fp(total_pnl, sign=True, decimals=2),
@@ -799,4 +801,3 @@ if uploaded:
 
 else:
     render_how_it_works()
-
