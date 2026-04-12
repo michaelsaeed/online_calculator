@@ -7,6 +7,11 @@ from collections import defaultdict
 from datetime import date, datetime
 
 st.set_page_config(page_title="Covered Call Analyser", page_icon="📈", layout="wide")
+st.markdown("""
+<style>
+details summary p { font-size: 1.1rem !important; font-weight: 600 !important; }
+</style>
+""", unsafe_allow_html=True)
 st.title("📈 Covered Call Statement Analyser")
 
 # ── PDF EXTRACTION ─────────────────────────────────────────────────────────────
@@ -389,9 +394,9 @@ def render_dashboard(trades, period=None):
                 'stock_qty': cycle.get('stock_qty', 0),
             })
 
-    total_positions = len([c for c in all_cycles if c['situation'] != 'options_only'])
+    total_positions = len(all_cycles)
     closed = len([c for c in all_cycles if c['situation'] in ('exercised', 'sell_only')])
-    open_pos = len([c for c in all_cycles if c['situation'] == 'open'])
+    open_pos = len([c for c in all_cycles if c['situation'] in ('open', 'options_only')])
     total_pnl_sum = sum(c['total_pnl'] for c in all_cycles if c['total_pnl'] is not None)
 
     st.subheader("Portfolio Summary")
@@ -445,6 +450,7 @@ def render_dashboard(trades, period=None):
 
     if rows:
         st.markdown("#### Positions")
+        st.caption("Click on any column header to sort the results in ascending or descending order.")
         df_positions = pd.DataFrame(rows)
 
         # Add a Total P&L summary row at the bottom
@@ -453,18 +459,12 @@ def render_dashboard(trades, period=None):
                 return float(str(val).replace('+$', '').replace('-$', '-').replace('$', '').replace(',', '').replace('—', '0'))
             except:
                 return 0.0
-        total_row_pnl = sum(parse_pnl(r['Total P&L']) for r in rows)
-        prefix = '+$' if total_row_pnl >= 0 else '-$'
-        total_row = {
-            'Position':  'TOTAL',
-            'Status':    '',
-            'Date':      '',
-            'ROI':       '',
-            'Total P&L': f"{prefix}{abs(total_row_pnl):,.2f}",
-            'Days Held': '',
-        }
-        df_display = pd.concat([df_positions, pd.DataFrame([total_row])], ignore_index=True)
-        st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+        st.dataframe(
+            df_positions,
+            use_container_width=True,
+            hide_index=True,
+        )
 
         import io as _io
         excel_buf = _io.BytesIO()
@@ -482,6 +482,9 @@ def render_dashboard(trades, period=None):
         for sym, t in sorted(trades.items()):
             for i, cycle in enumerate(build_cycles(sym, t), 1):
                 if cycle['situation'] not in ('exercised', 'open'):
+                    continue
+                    # Exclude open positions with no options sold — no ROI calculable
+                if cycle['situation'] == 'open' and not any((o['qty'] or 0) < 0 for o in cycle['opts']):
                     continue
                 be, profit, roi, ann_roi, days, total_pnl = calc_cycle(cycle)
                 if roi is None:
@@ -547,7 +550,7 @@ def render_dashboard(trades, period=None):
             # Chart 1: ROI % per trade (all positions)
             st.markdown("#### ROI % Per Trade")
             st.caption(
-                "Sorted alphabetically by ticker — stocks bought during this period only | Green: Closed Trade, Orange: Open Trade")
+                "Sorted alphabetically by ticker — Stocks bought during this period only | Green: Closed Trade, Orange: Open Trade")
             st.plotly_chart(make_bar_chart(chart_data, 'roi', '', 'ROI %', sort_by_label=True),
                             use_container_width=True)
 
@@ -555,7 +558,7 @@ def render_dashboard(trades, period=None):
             ann_data = [c for c in chart_data if c['ann_roi'] is not None]
             if ann_data:
                 st.markdown("#### Annualised ROI % Per Trade")
-                st.caption("Sorted from least to most profitable — closed positions only")
+                st.caption("Sorted from least to most profitable — Closed positions only")
                 st.plotly_chart(make_bar_chart(ann_data, 'ann_roi', '', 'Annualised ROI %', extra_roi=True),
                                 use_container_width=True)
 
@@ -731,7 +734,6 @@ def render_cycle(cycle, cycle_num, total_cycles, sym=''):
 def render_ticker(sym, trades):
     cycles = build_cycles(sym, trades)
     with st.expander(sym, expanded=False):
-        st.markdown(f"### {sym}")
         for i, cycle in enumerate(cycles, 1):
             render_cycle(cycle, i, len(cycles), sym=sym)
 
@@ -797,3 +799,4 @@ if uploaded:
 
 else:
     render_how_it_works()
+
