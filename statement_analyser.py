@@ -361,7 +361,7 @@ def fdays(v):
 
 # ── PORTFOLIO DASHBOARD ───────────────────────────────────────────────────────
 
-def render_dashboard(trades):
+def render_dashboard(trades, period=None):
     all_cycles = []
     for sym, t in trades.items():
         for cycle in build_cycles(sym, t):
@@ -383,6 +383,8 @@ def render_dashboard(trades):
     total_pnl_sum = sum(c['total_pnl'] for c in all_cycles if c['total_pnl'] is not None)
 
     st.subheader("Portfolio Summary")
+    if period:
+        st.markdown(f"**Statement Period:** {period}")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total P&L",
               f"{'+'if total_pnl_sum>=0 else ''}${total_pnl_sum:,.2f}",
@@ -419,18 +421,49 @@ def render_dashboard(trades):
             }.get(cycle['situation'], cycle['situation'])
             cycles_for_sym = build_cycles(sym, t)
             trade_label = f"{sym} — Trade {i}" if len(cycles_for_sym) > 1 else sym
+            has_options_sold = cycle['situation'] == 'open' and any((o['qty'] or 0) < 0 for o in cycle['opts'])
             rows.append({
                 'Position':  trade_label,
-                'Status':    situation_label,
+                'Status':    'Open (no options sold)' if (cycle['situation'] == 'open' and not has_options_sold) else situation_label,
                 'Date':      cycle.get('buy_date') or cycle.get('sell_date') or '—',
-                'ROI':       fpct(roi),
-                'Total P&L': fp(total_pnl, sign=True, decimals=2) if total_pnl is not None else '—',
+                'ROI':       '—' if (cycle['situation'] == 'open' and not has_options_sold) else fpct(roi),
+                'Total P&L': '—' if (cycle['situation'] == 'open' and not has_options_sold) else (fp(total_pnl, sign=True, decimals=2) if total_pnl is not None else '—'),
                 'Days Held': '—' if cycle['situation'] == 'open' else fdays(days),
             })
 
     if rows:
         st.markdown("#### Positions")
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        df_positions = pd.DataFrame(rows)
+
+        # Add a Total P&L summary row at the bottom
+        def parse_pnl(val):
+            try:
+                return float(str(val).replace('+$', '').replace('-$', '-').replace('$', '').replace(',', '').replace('—', '0'))
+            except:
+                return 0.0
+        total_row_pnl = sum(parse_pnl(r['Total P&L']) for r in rows)
+        prefix = '+$' if total_row_pnl >= 0 else '-$'
+        total_row = {
+            'Position':  'TOTAL',
+            'Status':    '',
+            'Date':      '',
+            'ROI':       '',
+            'Total P&L': f"{prefix}{abs(total_row_pnl):,.2f}",
+            'Days Held': '',
+        }
+        df_display = pd.concat([df_positions, pd.DataFrame([total_row])], ignore_index=True)
+        st.dataframe(df_display, use_container_width=True, hide_index=True)
+
+        import io as _io
+        excel_buf = _io.BytesIO()
+        df_positions.to_excel(excel_buf, index=False, sheet_name='Positions')
+        excel_buf.seek(0)
+        st.download_button(
+            label="⬇️ Export Positions to Excel",
+            data=excel_buf,
+            file_name="positions.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
         # ── Collect chart data once — used by both charts
         chart_data = []
@@ -608,7 +641,7 @@ def render_dashboard(trades):
 
 # ── RENDER CYCLE ──────────────────────────────────────────────────────────────
 
-def render_cycle(cycle, cycle_num, total_cycles):
+def render_cycle(cycle, cycle_num, total_cycles, sym=''):
     situation = cycle['situation']
     rows = []
 
@@ -641,44 +674,53 @@ def render_cycle(cycle, cycle_num, total_cycles):
                      'T. Price': fp(t_price, sign=True)})
 
     if total_cycles > 1:
-        st.markdown(f"#### Trade {cycle_num}")
+        if cycle_num > 1:
+            st.divider()
+        st.markdown(f"#### {sym} Trade {cycle_num}")
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     be, profit, roi, ann_roi, days, total_pnl = calc_cycle(cycle)
 
     if situation in ('exercised', 'open'):
-        c1, c2, c3, c4, c5 = st.columns(5)
-        c1.metric("Breakeven Price", fp(be, decimals=2))
-        c2.metric("Profit / Share",  fp(profit, sign=True, decimals=4))
-        c3.metric("ROI", fpct(roi), delta_color="normal" if (roi or 0) >= 0 else "inverse")
-        c4.metric("Total P&L", fp(total_pnl, sign=True, decimals=2) if total_pnl is not None else '—',
-                  delta_color="normal" if (total_pnl or 0) >= 0 else "inverse")
-        c5.metric("Days Held" if situation == 'exercised' else "Days Open", fdays(days) if situation == 'exercised' else '—')
+        has_options_sold = situation == 'open' and any((o['qty'] or 0) < 0 for o in cycle['opts'])
+        if situation == 'open' and not has_options_sold:
+            pass  # caption shown below in notes block
+        else:
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Breakeven Price", fp(be, decimals=2))
+            c2.metric("Profit / Share",  fp(profit, sign=True, decimals=4))
+            c3.metric("ROI", fpct(roi), delta_color="normal" if (roi or 0) >= 0 else "inverse")
+            c4.metric("Total P&L", fp(total_pnl, sign=True, decimals=2) if total_pnl is not None else '—',
+                      delta_color="normal" if (total_pnl or 0) >= 0 else "inverse")
+            c5.metric("Days Held" if situation == 'exercised' else "Days Open", fdays(days) if situation == 'exercised' else '—')
     elif situation == 'sell_only':
         if total_pnl is not None:
             st.metric("Total P&L (Options sold)", fp(total_pnl, sign=True, decimals=2),
                       delta_color="normal" if (total_pnl or 0) >= 0 else "inverse")
-        st.info("Stock was purchased in a prior period — Not enough info to complete the calculations.")
     elif situation == 'options_only':
         if total_pnl is not None:
             st.metric("Total P&L (Options sold)", fp(total_pnl, sign=True, decimals=2),
                       delta_color="normal" if (total_pnl or 0) >= 0 else "inverse")
-        st.info("Stock was purchased in a prior period — Not enough info to complete the calculations.")
 
+    has_options_sold = situation == 'open' and any((o['qty'] or 0) < 0 for o in cycle['opts'])
     notes = {
-        'exercised':    "📌 Full cycle: stock bought and sold in this period.",
-        'open':         "📌 Stock still open. Profit = option premium collected so far.",
-        'sell_only':    "📌 Stock sold — original buy was in a prior period.",
-        'options_only': "📌 Options only — original buy was in a prior period.",
+        'exercised':    "📌 Full cycle — Stock bought and sold in this period.",
+        'sell_only':    "📌 Stock sold — Original buy was in a prior period, profit is the option premium collected during this period | Insufficient data to run full calculations.",
+        'options_only': "📌 Options only — Original buy was in a prior period, profit is the option premium collected during this period | Insufficient data to run full calculations.",
     }
-    st.caption(notes.get(situation, ''))
+    if situation == 'open' and has_options_sold:
+        st.caption("📌 Stock still open — Profit is the option premium collected during this period | Insufficient data to run full calculations.")
+    elif situation == 'open' and not has_options_sold:
+        st.caption("📌 Stock still open — No options sold during this period.")
+    else:
+        st.caption(notes.get(situation, ''))
 
 
 def render_ticker(sym, trades):
     cycles = build_cycles(sym, trades)
     st.markdown(f"### {sym}")
     for i, cycle in enumerate(cycles, 1):
-        render_cycle(cycle, i, len(cycles))
+        render_cycle(cycle, i, len(cycles), sym=sym)
     st.divider()
 
 # ── HOW CALCULATIONS WORK (always visible at bottom when file loaded) ─────────
@@ -718,9 +760,6 @@ if uploaded:
         section, fmt, debug = find_trades_section(text)
         trades = parse_trades(section, fmt)
 
-    if period:
-        st.caption(f"Statement period: {period}")
-
     if not trades:
         st.error("No trades found.")
         st.json(debug)
@@ -731,7 +770,7 @@ if uploaded:
         st.stop()
 
     # Portfolio dashboard
-    render_dashboard(trades)
+    render_dashboard(trades, period=period)
 
     # Per-ticker detail
     tickers = sorted(trades.keys())
