@@ -320,6 +320,17 @@ def calc_cycle(cycle):
         profit  = opt_per_share
         roi     = profit / buy_price * 100 if buy_price else None
         ann_roi = (roi / days * 365) if (roi is not None and days and days > 0) else None
+    elif situation == 'sell_only':
+        be = profit = roi = ann_roi = None
+        opt_pnl = opt_premium_net * 100
+        total_pnl = opt_pnl if opt_pnl != 0 else None
+        return be, profit, roi, ann_roi, days, total_pnl
+    elif situation == 'options_only':
+        be = roi = ann_roi = None
+        opt_pnl = opt_premium_net * 100
+        profit = opt_pnl if opt_pnl != 0 else None
+        total_pnl = profit
+        return be, profit, roi, ann_roi, days, total_pnl
     else:
         be = profit = roi = ann_roi = None
 
@@ -386,6 +397,19 @@ def render_dashboard(trades):
     for sym, t in sorted(trades.items()):
         for i, cycle in enumerate(build_cycles(sym, t), 1):
             if cycle['situation'] == 'options_only':
+                be, profit, roi, ann_roi, days, total_pnl = calc_cycle(cycle)
+                cycles_for_sym = build_cycles(sym, t)
+                trade_label = f"{sym} — Trade {i}" if len(cycles_for_sym) > 1 else sym
+                opt_dates = [o.get('date', '') for o in cycle['opts'] if o.get('date')]
+                close_date = max(opt_dates) if opt_dates else '—'
+                rows.append({
+                    'Position':  trade_label,
+                    'Status':    'Options Only',
+                    'Date':      close_date,
+                    'ROI':       '—',
+                    'Total P&L': fp(total_pnl, sign=True, decimals=2) if total_pnl is not None else '—',
+                    'Days Held': '—',
+                })
                 continue
             be, profit, roi, ann_roi, days, total_pnl = calc_cycle(cycle)
             situation_label = {
@@ -476,15 +500,18 @@ def render_dashboard(trades):
                 return fig
 
             # Chart 1: ROI % per trade (all positions)
-            st.plotly_chart(make_bar_chart(chart_data, 'roi', 'ROI % Per Trade (Sorted alphabetically by ticker)', 'ROI %', sort_by_label=True),
+            st.markdown("#### ROI % Per Trade")
+            st.caption(
+                "Sorted alphabetically by ticker — stocks bought during this period only | Green: Closed Trade, Orange: Open Trade")
+            st.plotly_chart(make_bar_chart(chart_data, 'roi', '', 'ROI %', sort_by_label=True),
                             use_container_width=True)
 
             # Chart 2: Annualised ROI — closed positions only
             ann_data = [c for c in chart_data if c['ann_roi'] is not None]
             if ann_data:
-                st.plotly_chart(make_bar_chart(ann_data, 'ann_roi',
-                                               'Annualised ROI % Per Trade (Sorted from least to most profitable — closed positions only)',
-                                               'Annualised ROI %', extra_roi=True),
+                st.markdown("#### Annualised ROI % Per Trade")
+                st.caption("Sorted from least to most profitable — closed positions only")
+                st.plotly_chart(make_bar_chart(ann_data, 'ann_roi', '', 'Annualised ROI %', extra_roi=True),
                                 use_container_width=True)
 
             # Chart 3: Cumulative P&L line chart
@@ -492,19 +519,30 @@ def render_dashboard(trades):
             cum_points = []
             for sym, t in trades.items():
                 for cycle in build_cycles(sym, t):
-                    if cycle['situation'] not in ('exercised', 'open'):
+                    if cycle['situation'] not in ('exercised', 'open', 'sell_only', 'options_only'):
                         continue
                     be, profit, roi, ann_roi, days, total_pnl = calc_cycle(cycle)
                     if total_pnl is None:
                         continue
-                    # Use close date for exercised, buy date for open
-                    point_date = cycle.get('sell_date') or cycle.get('buy_date')
+                    # Use close/latest date depending on situation
+                    if cycle['situation'] == 'options_only':
+                        opt_dates = [o.get('date', '') for o in cycle['opts'] if o.get('date')]
+                        point_date = max(opt_dates) if opt_dates else None
+                    else:
+                        point_date = cycle.get('sell_date') or cycle.get('buy_date')
                     if not point_date:
                         continue
                     cycles_for_sym = build_cycles(sym, t)
                     i = next((i for i, c in enumerate(cycles_for_sym, 1) if c is cycle), 1)
                     label = f"{sym} T{i}" if len(cycles_for_sym) > 1 else sym
-                    status = 'Open' if cycle['situation'] == 'open' else 'Closed'
+                    if cycle['situation'] == 'open':
+                        status = 'Open'
+                    elif cycle['situation'] == 'options_only':
+                        status = 'Options Only'
+                    elif cycle['situation'] == 'sell_only':
+                        status = 'Closed (prior buy)'
+                    else:
+                        status = 'Closed'
                     cum_points.append({
                         'date':      point_date,
                         'label':     label,
@@ -552,7 +590,7 @@ def render_dashboard(trades):
                                line_color='rgba(255,255,255,0.2)', line_width=1)
 
                 fig3.update_layout(
-                    title=dict(text='Cumulative P&L', font=dict(size=14)),
+                    title=dict(text='', font=dict(size=14)),
                     xaxis=dict(title='', showgrid=False, tickangle=-30),
                     yaxis=dict(title='Cumulative P&L ($)', showgrid=True,
                                gridcolor='rgba(255,255,255,0.07)', zeroline=False),
@@ -563,6 +601,7 @@ def render_dashboard(trades):
                     height=400,
                     hoverlabel=dict(bgcolor='#1e1e2e', font_size=13),
                 )
+                st.markdown("#### Cumulative P&L")
                 st.plotly_chart(fig3, use_container_width=True)
 
     st.divider()
@@ -580,7 +619,7 @@ def render_cycle(cycle, cycle_num, total_cycles):
             'Date':     t.get('date', ''),
             'Action':   'Buy' if is_buy else 'Sell',
             'Qty':      fq(t['qty']),
-            'T. Price': fp(t['t_price']) if (is_buy or situation != 'sell_only') else 'N/A',
+            'T. Price': fp(t['t_price']),
         })
 
     def opt_label(o):
@@ -610,15 +649,20 @@ def render_cycle(cycle, cycle_num, total_cycles):
     if situation in ('exercised', 'open'):
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Breakeven Price", fp(be, decimals=2))
-        c2.metric("Profit / Share",  fp(profit, sign=True, decimals=4),
-                  delta="profit" if (profit or 0) >= 0 else "loss",
-                  delta_color="normal" if (profit or 0) >= 0 else "inverse")
+        c2.metric("Profit / Share",  fp(profit, sign=True, decimals=4))
         c3.metric("ROI", fpct(roi), delta_color="normal" if (roi or 0) >= 0 else "inverse")
         c4.metric("Total P&L", fp(total_pnl, sign=True, decimals=2) if total_pnl is not None else '—',
                   delta_color="normal" if (total_pnl or 0) >= 0 else "inverse")
         c5.metric("Days Held" if situation == 'exercised' else "Days Open", fdays(days) if situation == 'exercised' else '—')
     elif situation == 'sell_only':
-        st.info("Stock was purchased in a prior period — T. Price shown as N/A.")
+        if total_pnl is not None:
+            st.metric("Total P&L (Options sold)", fp(total_pnl, sign=True, decimals=2),
+                      delta_color="normal" if (total_pnl or 0) >= 0 else "inverse")
+        st.info("Stock was purchased in a prior period — Not enough info to complete the calculations.")
+    elif situation == 'options_only':
+        if total_pnl is not None:
+            st.metric("Total P&L (Options sold)", fp(total_pnl, sign=True, decimals=2),
+                      delta_color="normal" if (total_pnl or 0) >= 0 else "inverse")
 
     notes = {
         'exercised':    "📌 Full cycle: stock bought and sold in this period.",
@@ -650,8 +694,9 @@ def render_how_it_works():
 
 # ── UI ────────────────────────────────────────────────────────────────────────
 
+st.markdown("### Upload The Trading Statement (PDF)")
 uploaded = st.file_uploader(
-    "Upload The Trading Statement (PDF)", type=["pdf"], key="uploader"
+    "", type=["pdf"], key="uploader"
 )
 
 if uploaded:
@@ -699,5 +744,4 @@ if uploaded:
     render_how_it_works()
 
 else:
-    st.info("👆 Upload the trading statement PDF to get started.")
     render_how_it_works()
