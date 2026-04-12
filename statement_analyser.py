@@ -663,12 +663,13 @@ def render_cycle(cycle, cycle_num, total_cycles):
         if total_pnl is not None:
             st.metric("Total P&L (Options sold)", fp(total_pnl, sign=True, decimals=2),
                       delta_color="normal" if (total_pnl or 0) >= 0 else "inverse")
+        st.info("Stock was purchased in a prior period — Not enough info to complete the calculations.")
 
     notes = {
         'exercised':    "📌 Full cycle: stock bought and sold in this period.",
         'open':         "📌 Stock still open. Profit = option premium collected so far.",
-        'sell_only':    "📌 Stock sold; original buy was in a prior period.",
-        'options_only': "📌 Options only — no stock trades in this period.",
+        'sell_only':    "📌 Stock sold — original buy was in a prior period.",
+        'options_only': "📌 Options only — original buy was in a prior period.",
     }
     st.caption(notes.get(situation, ''))
 
