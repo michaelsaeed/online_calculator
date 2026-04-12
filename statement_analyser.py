@@ -730,10 +730,10 @@ def render_cycle(cycle, cycle_num, total_cycles, sym=''):
 
 def render_ticker(sym, trades):
     cycles = build_cycles(sym, trades)
-    st.markdown(f"### {sym}")
-    for i, cycle in enumerate(cycles, 1):
-        render_cycle(cycle, i, len(cycles), sym=sym)
-    st.divider()
+    with st.expander(sym, expanded=False):
+        st.markdown(f"### {sym}")
+        for i, cycle in enumerate(cycles, 1):
+            render_cycle(cycle, i, len(cycles), sym=sym)
 
 # ── HOW CALCULATIONS WORK (always visible at bottom when file loaded) ─────────
 
@@ -785,14 +785,14 @@ if uploaded:
     render_dashboard(trades, period=period)
 
     # Per-ticker detail
+    st.markdown("#### Trades Breakdown")
     tickers = sorted(trades.keys())
-    selected = st.multiselect("Filter tickers (empty = show all)", tickers, default=[])
-    show = selected if selected else tickers
 
-    for sym in show:
+    for sym in tickers:
         render_ticker(sym, trades[sym])
 
     # Always visible at bottom
+    st.divider()
     render_how_it_works()
 
 else:
