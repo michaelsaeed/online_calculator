@@ -210,13 +210,20 @@ def build_cycles(sym, trades):
     cycles = []
     used_opts = set()
 
-    def opts_in_range(d_start, d_end):
+    def opt_qty_matches(o, stock_qty):
+        """Option contracts must match stock quantity (stock qty 300 = 3 contracts)."""
+        return abs(o.get('qty') or 0) == stock_qty / 100
+
+    def opts_in_range(d_start, d_end, stock_qty=None):
         result = []
         for i, o in enumerate(opts):
             if i in used_opts:
                 continue
             d = o.get('date', '')
             if (d_start is None or d >= d_start) and (d_end is None or d <= d_end):
+                # If stock_qty provided, only include options whose contract qty matches
+                if stock_qty is not None and not opt_qty_matches(o, stock_qty):
+                    continue
                 result.append((i, o))
         return result
 
@@ -233,7 +240,9 @@ def build_cycles(sym, trades):
         if candidate:
             paired_buys.add(id(candidate))
             buy_date = candidate.get('date', '')
-            cycle_opts_idx = opts_in_range(buy_date, sell_date)
+            stock_qty = abs(candidate['qty'] or 1)
+            # Options must fall within buy-sell date range AND match stock qty
+            cycle_opts_idx = opts_in_range(buy_date, sell_date, stock_qty=stock_qty)
             for i, _ in cycle_opts_idx:
                 used_opts.add(i)
             cycles.append({
@@ -241,18 +250,19 @@ def build_cycles(sym, trades):
                 'stock': sorted([candidate, sell], key=lambda t: t.get('date', '')),
                 'opts': [o for _, o in cycle_opts_idx],
                 'buy_price': candidate['t_price'], 'sell_price': sell['t_price'],
-                'stock_qty': abs(candidate['qty'] or 1),
-                'buy_date': candidate.get('date', ''), 'sell_date': sell.get('date', ''),
+                'stock_qty': stock_qty,
+                'buy_date': buy_date, 'sell_date': sell.get('date', ''),
             })
         else:
-            cycle_opts_idx = opts_in_range(None, sell_date)
+            stock_qty = abs(sell['qty'] or 1)
+            cycle_opts_idx = opts_in_range(None, sell_date, stock_qty=stock_qty)
             for i, _ in cycle_opts_idx:
                 used_opts.add(i)
             cycles.append({
                 'situation': 'sell_only',
                 'stock': [sell], 'opts': [o for _, o in cycle_opts_idx],
                 'buy_price': None, 'sell_price': sell['t_price'],
-                'stock_qty': abs(sell['qty'] or 1),
+                'stock_qty': stock_qty,
                 'buy_date': None, 'sell_date': sell.get('date', ''),
             })
 
@@ -260,14 +270,16 @@ def build_cycles(sym, trades):
         if id(b) in paired_buys:
             continue
         buy_date = b.get('date', '')
-        cycle_opts_idx = [(i, o) for i, o in opts_in_range(buy_date, None) if i not in used_opts]
+        stock_qty = abs(b['qty'] or 1)
+        # Options must start from buy date AND match stock qty
+        cycle_opts_idx = [(i, o) for i, o in opts_in_range(buy_date, None, stock_qty=stock_qty) if i not in used_opts]
         for i, _ in cycle_opts_idx:
             used_opts.add(i)
         cycles.append({
             'situation': 'open',
             'stock': [b], 'opts': [o for _, o in cycle_opts_idx],
             'buy_price': b['t_price'], 'sell_price': None,
-            'stock_qty': abs(b['qty'] or 1),
+            'stock_qty': stock_qty,
             'buy_date': buy_date, 'sell_date': None,
         })
 
@@ -676,7 +688,7 @@ def render_cycle(cycle, cycle_num, total_cycles, sym=''):
     if total_cycles > 1:
         if cycle_num > 1:
             st.divider()
-        st.markdown(f"#### {sym} Trade {cycle_num}")
+        st.markdown(f"#### {sym} — Trade {cycle_num}")
     st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     be, profit, roi, ann_roi, days, total_pnl = calc_cycle(cycle)
